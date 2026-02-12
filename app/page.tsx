@@ -160,19 +160,16 @@ export default function Home() {
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-border px-6 py-4">
-          <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-3 md:flex-row">
-            <p className="text-center text-[10px] tracking-wider text-muted-foreground md:text-left">
-              {"This tool judges your commits so your teammates don't have to."}
+        <footer className="border-t border-border px-6 py-16 md:py-20">
+          <div className="mx-auto flex max-w-2xl flex-col items-center gap-8">
+            <img
+              src="/images/gitkraken-logo.png"
+              alt="GitKraken logo"
+              className="w-[140px] opacity-80 drop-shadow-[0_0_15px_rgba(0,255,65,0.4)]"
+            />
+            <p className="text-center text-xs leading-relaxed tracking-wide text-muted-foreground/70">
+              {"We all write commits like \"fix stuff\" at 11:47pm and swear we'll clean them up later. This tool roasts your commits, translates what they actually mean, shows how your team interprets them, and helps you rewrite them into something future-you won't hate. Equal parts humor and reality check, built for developers who have absolutely pushed \"final_final_really_final\" to main at least once. Powered by GitKraken to help you write clearer commits, understand your history, and keep your repo readable."}
             </p>
-            <a
-              href="https://www.gitkraken.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] tracking-wider text-neon-green/60 transition-colors hover:text-neon-green"
-            >
-              {"POWERED BY GITKRAKEN"}
-            </a>
           </div>
         </footer>
       </div>
