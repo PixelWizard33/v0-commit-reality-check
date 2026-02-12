@@ -44,6 +44,12 @@ const config: Config = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        'neon-green': '#00FF41',
+        'neon-cyan': '#00FFFF',
+        'neon-orange': '#FFA500',
+        'neon-magenta': '#FF00AA',
+        'terminal-bg': '#080B09',
+        'terminal-panel': '#0D110E',
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',
@@ -70,14 +76,6 @@ const config: Config = {
       fontFamily: {
         mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
         sans: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
-      },
-      colors: {
-        'neon-green': '#00FF41',
-        'neon-cyan': '#00FFFF',
-        'neon-orange': '#FFA500',
-        'neon-magenta': '#FF00AA',
-        'terminal-bg': '#080B09',
-        'terminal-panel': '#0D110E',
       },
       keyframes: {
         'accordion-down': {
