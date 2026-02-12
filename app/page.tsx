@@ -191,9 +191,9 @@ export default function Home() {
         <footer className="border-t border-border px-6 py-16 md:py-20">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-8">
             <img
-              src="/images/gitkraken-cli-logo.png"
+              src="/images/gitkraken-inline-ascii.png"
               alt="GitKraken logo"
-              className="w-[160px] opacity-90 drop-shadow-[0_0_12px_rgba(0,255,65,0.3)]"
+              className="w-[320px] max-w-full opacity-90 drop-shadow-[0_0_12px_rgba(0,255,65,0.3)]"
             />
             <p className="text-center text-xs leading-relaxed tracking-wide text-muted-foreground/70">
               {"We all write commits like \"fix stuff\" at 11:47pm and swear we'll clean them up later. This tool roasts your commits, translates what they actually mean, shows how your team interprets them, and helps you rewrite them into something future-you won't hate. Equal parts humor and reality check, built for developers who have absolutely pushed \"final_final_really_final\" to main at least once. Powered by GitKraken to help you write clearer commits, understand your history, and keep your repo readable."}
