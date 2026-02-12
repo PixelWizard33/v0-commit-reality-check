@@ -1,6 +1,21 @@
 "use client"
 
 import type { RoastIntensity } from "@/lib/mock-data"
+import { TerminalTooltip } from "@/components/terminal-tooltip"
+
+const tooltipText: Record<RoastIntensity, string> = {
+  friendly: "gentle nudges only, we still like you",
+  classic: "standard dev humor, no feelings spared",
+  savage: "you asked for it, don't @ us",
+  existential: "why do we even write code?",
+}
+
+const tooltipAccent: Record<RoastIntensity, "green" | "cyan" | "orange" | "magenta"> = {
+  friendly: "green",
+  classic: "cyan",
+  savage: "orange",
+  existential: "magenta",
+}
 
 interface RoastControlsProps {
   intensity: RoastIntensity
@@ -31,42 +46,52 @@ export function RoastControls({
         </div>
         <div className="flex flex-wrap gap-2">
           {intensities.map((opt) => (
-            <button
+            <TerminalTooltip
               key={opt.value}
-              onClick={() => onIntensityChange(opt.value)}
-              className={`border px-3 py-1.5 text-xs tracking-wider transition-all ${
-                intensity === opt.value
-                  ? opt.color
-                  : "border-border text-muted-foreground hover:border-border hover:text-foreground"
-              }`}
+              text={tooltipText[opt.value]}
+              accentColor={tooltipAccent[opt.value]}
             >
-              {opt.label}
-            </button>
+              <button
+                onClick={() => onIntensityChange(opt.value)}
+                className={`border px-3 py-1.5 text-xs tracking-wider transition-all ${
+                  intensity === opt.value
+                    ? opt.color
+                    : "border-border text-muted-foreground hover:border-border hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            </TerminalTooltip>
           ))}
         </div>
       </div>
 
       <div className="flex items-center gap-3">
         <span className="text-xs tracking-wider text-muted-foreground">HELPFUL MODE</span>
-        <button
-          onClick={() => onHelpfulModeChange(!helpfulMode)}
-          className={`relative h-6 w-11 rounded-full border transition-all ${
-            helpfulMode
-              ? "border-neon-green/40 bg-neon-green/20"
-              : "border-border bg-terminal-bg"
-          }`}
-          role="switch"
-          aria-checked={helpfulMode}
-          aria-label="Toggle helpful mode"
+        <TerminalTooltip
+          text={helpfulMode ? "rewrites included, you're welcome" : "enable for actual useful suggestions"}
+          accentColor="green"
         >
-          <span
-            className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${
+          <button
+            onClick={() => onHelpfulModeChange(!helpfulMode)}
+            className={`relative h-6 w-11 rounded-full border transition-all ${
               helpfulMode
-                ? "left-[22px] bg-neon-green shadow-[0_0_8px_rgba(0,255,65,0.5)]"
-                : "left-0.5 bg-muted-foreground"
+                ? "border-neon-green/40 bg-neon-green/20"
+                : "border-border bg-terminal-bg"
             }`}
-          />
-        </button>
+            role="switch"
+            aria-checked={helpfulMode}
+            aria-label="Toggle helpful mode"
+          >
+            <span
+              className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${
+                helpfulMode
+                  ? "left-[22px] bg-neon-green shadow-[0_0_8px_rgba(0,255,65,0.5)]"
+                  : "left-0.5 bg-muted-foreground"
+              }`}
+            />
+          </button>
+        </TerminalTooltip>
       </div>
     </div>
   )

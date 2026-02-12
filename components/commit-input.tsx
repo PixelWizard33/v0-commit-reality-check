@@ -2,6 +2,7 @@
 
 import { Plus, X } from "lucide-react"
 import { placeholderCommits } from "@/lib/mock-data"
+import { TerminalTooltip } from "@/components/terminal-tooltip"
 
 interface CommitInputProps {
   commits: string[]
@@ -66,13 +67,18 @@ export function CommitInput({ commits, onChange }: CommitInputProps) {
       </div>
 
       {commits.length < 10 && (
-        <button
-          onClick={addCommit}
-          className="flex items-center gap-2 self-start border border-dashed border-border px-3 py-1.5 text-xs tracking-wider text-muted-foreground transition-all hover:border-neon-green/50 hover:text-neon-green"
+        <TerminalTooltip
+          text="more commits = more pain, keep going"
+          accentColor="green"
         >
-          <Plus className="h-3 w-3" />
-          ADD COMMIT
-        </button>
+          <button
+            onClick={addCommit}
+            className="flex items-center gap-2 self-start border border-dashed border-border px-3 py-1.5 text-xs tracking-wider text-muted-foreground transition-all hover:border-neon-green/50 hover:text-neon-green"
+          >
+            <Plus className="h-3 w-3" />
+            ADD COMMIT
+          </button>
+        </TerminalTooltip>
       )}
     </div>
   )
