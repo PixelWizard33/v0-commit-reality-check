@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { TerminalHeader } from "@/components/terminal-header"
 import { CommitInput } from "@/components/commit-input"
 import { RoastControls } from "@/components/roast-controls"
@@ -29,6 +29,33 @@ export default function Home() {
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [showOutput, setShowOutput] = useState(false)
   const [isRunning, setIsRunning] = useState(false)
+  const [muted, setMuted] = useState(false)
+  const [soundPlayed, setSoundPlayed] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Initialize audio element once
+  useEffect(() => {
+    const audio = new Audio("/sounds/commit-analysis.mp3")
+    audio.volume = 0.25
+    audioRef.current = audio
+    return () => {
+      audio.pause()
+      audio.src = ""
+    }
+  }, [])
+
+  // Play sound once when output finishes rendering
+  useEffect(() => {
+    if (showOutput && !soundPlayed && !muted && audioRef.current) {
+      audioRef.current.currentTime = 0
+      audioRef.current.play().catch(() => {})
+      setSoundPlayed(true)
+    }
+  }, [showOutput, soundPlayed, muted])
+
+  const handleMuteToggle = useCallback(() => {
+    setMuted((prev) => !prev)
+  }, [])
 
   const runAnalysis = useCallback(() => {
     const validCommits = commits.filter((c) => c.trim().length > 0)
@@ -36,6 +63,7 @@ export default function Home() {
 
     setIsRunning(true)
     setShowOutput(false)
+    setSoundPlayed(false)
 
     setTimeout(() => {
       const analysis = generateAnalysis(validCommits, intensity)
@@ -96,7 +124,7 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 flex flex-1 flex-col">
-        <TerminalHeader />
+        <TerminalHeader muted={muted} onMuteToggle={handleMuteToggle} />
 
         <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-8 md:px-8">
           {/* Input Panel */}
