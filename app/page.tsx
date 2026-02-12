@@ -172,6 +172,23 @@ export default function Home() {
             </p>
           </div>
         </footer>
+
+        {/* Bottom Bar */}
+        <div className="border-t border-border px-6 py-4">
+          <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-3 md:flex-row">
+            <p className="text-center text-[10px] tracking-wider text-muted-foreground md:text-left">
+              {"This tool judges your commits so your teammates don't have to."}
+            </p>
+            <a
+              href="https://www.gitkraken.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] tracking-wider text-neon-green/60 transition-colors hover:text-neon-green"
+            >
+              {"POWERED BY GITKRAKEN"}
+            </a>
+          </div>
+        </div>
       </div>
 
       {/* Email Modal */}
