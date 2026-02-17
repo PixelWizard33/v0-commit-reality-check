@@ -49,15 +49,51 @@ const panels = [
 ]
 
 export function TranslatorPanels({ translations, visible }: TranslatorPanelsProps) {
+  const [activeIndex, setActiveIndex] = useState(0)
+  // Key used to re-trigger typing animation on tab switch
+  const [animKey, setAnimKey] = useState(0)
+
   if (!visible || translations.length === 0) return null
 
-  const translation = translations[0]
+  const translation = translations[activeIndex]
+
+  const handleTabChange = (index: number) => {
+    if (index === activeIndex) return
+    setActiveIndex(index)
+    setAnimKey((k) => k + 1)
+  }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="text-xs tracking-wider text-neon-cyan">
         {">"} TRANSLATOR OUTPUT
       </div>
+
+      {/* Commit tabs */}
+      {translations.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {translations.map((t, i) => {
+            const label = t.whatYouWrote.length > 40
+              ? t.whatYouWrote.slice(0, 37) + "..."
+              : t.whatYouWrote
+            return (
+              <button
+                key={i}
+                onClick={() => handleTabChange(i)}
+                className={`border px-3 py-1.5 text-[11px] tracking-wider transition-all ${
+                  i === activeIndex
+                    ? "border-neon-cyan/60 bg-neon-cyan/10 text-neon-cyan glow-border-cyan"
+                    : "border-border text-muted-foreground hover:border-neon-cyan/30 hover:text-foreground"
+                }`}
+              >
+                <span className="text-muted-foreground">$</span>{" "}
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         {panels.map((panel, i) => (
           <div
@@ -69,6 +105,7 @@ export function TranslatorPanels({ translations, visible }: TranslatorPanelsProp
             </div>
             <div className="min-h-[3rem] text-sm">
               <TypedText
+                key={`${animKey}-${panel.key}`}
                 text={translation[panel.key]}
                 delay={i * 400}
                 color={panel.color}
