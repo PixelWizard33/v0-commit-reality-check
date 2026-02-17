@@ -11,6 +11,7 @@ import { TranslatorPanels } from "@/components/output/translator-panels"
 import { RealityCheckSection } from "@/components/output/reality-check"
 import { RewriteActions } from "@/components/output/rewrite-actions"
 import { CTASection } from "@/components/output/cta-section"
+import { ShareSection } from "@/components/output/share-section"
 import { CopyResults } from "@/components/output/copy-results"
 import {
   generateAnalysis,
@@ -181,6 +182,8 @@ export default function Home() {
                   <RewriteActions visible={showOutput} onRewrite={handleRewrite} />
                 </>
               )}
+
+              <ShareSection result={result} visible={showOutput} />
 
               <CTASection visible={showOutput} />
             </section>
