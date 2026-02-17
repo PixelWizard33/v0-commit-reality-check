@@ -21,7 +21,7 @@ export function CTASection({ visible }: CTASectionProps) {
         {"GitKraken Desktop uses your repo's context and AI to draft clean, meaningful commit messages you can review and approve instantly. Then see exactly how everything fits together with the interactive Commit Graph that helps you understand your history at a glance."}
       </p>
       <a
-        href="https://www.gitkraken.com/download"
+        href="https://www.gitkraken.com/download?utm_source=commitroaster&utm_campaign=roasttofu&utm_id=commitroast"
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 border border-neon-green bg-neon-green/10 px-5 py-2.5 text-sm font-bold tracking-wider text-neon-green transition-all hover:bg-neon-green/20 pulse-glow"
