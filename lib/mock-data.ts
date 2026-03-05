@@ -245,12 +245,12 @@ function assignRoasts(commits: string[], intensity: RoastIntensity): string[] {
   for (const commit of commits) {
     const words = commit.toLowerCase().split(/[\s\-_:,.#/()]+/)
 
-    // Score each roast by how many tags match the commit
+    // Score each roast by how many tags exactly match words in the commit
     const scored = pool
       .filter((r) => !usedTexts.has(r.text))
       .map((r) => {
         const tagScore = r.tags
-          ? r.tags.reduce((s, tag) => s + (words.some((w) => w.includes(tag) || tag.includes(w)) ? 1 : 0), 0)
+          ? r.tags.reduce((s, tag) => s + (words.includes(tag) ? 1 : 0), 0)
           : 0
         return { text: r.text, score: tagScore }
       })
