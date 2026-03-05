@@ -209,8 +209,8 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
-/** Fisher-Yates shuffle (returns new array) */
-function shuffle<T>(arr: T[]): T[] {
+/** Fisher-Yates shuffle (returns new array) -- exported for testing */
+export function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
@@ -236,8 +236,9 @@ function getRoastPool(intensity: RoastIntensity): TaggedRoast[] {
  * For each commit, find roasts whose tags match words in the commit.
  * Then fill remaining slots from unmatched roasts.
  * Guarantees no two commits get the same roast in a single run.
+ * Exported for testing.
  */
-function assignRoasts(commits: string[], intensity: RoastIntensity): string[] {
+export function assignRoasts(commits: string[], intensity: RoastIntensity): string[] {
   const pool = getRoastPool(intensity)
   const usedTexts = new Set<string>()
   const results: string[] = []
