@@ -13,11 +13,13 @@ interface ShareSectionProps {
 function buildShareText(result: AnalysisResult | null): string {
   if (!result) return ""
   const topRoast = result.roasts[0]
-  return `I just got my commits roasted. Chaos Score: ${result.chaosScore}/100. "${topRoast?.original}" \u2192 "${topRoast?.roast}"\n\nTry it yourself \u2192`
+  const extra = result.roasts.length > 1
+    ? ` (+${result.roasts.length - 1} more commits roasted)`
+    : ""
+  return `I just got my commits roasted by @GitKraken's Commit Reality Check.\n\nChaos Score: ${result.chaosScore}/100${extra}\n\n"${topRoast?.original}" → "${topRoast?.roast}"\n\nKnow someone who commits "fix stuff" at midnight? Try it:`
 }
 
 function buildShareUrl(): string {
-  // Returns the current page URL for sharing
   if (typeof window !== "undefined") {
     return window.location.href
   }
@@ -63,7 +65,6 @@ export function ShareSection({ result, visible }: ShareSectionProps) {
 
   const shareText = buildShareText(result)
   const shareUrl = buildShareUrl()
-  const encodedText = encodeURIComponent(shareText)
   const encodedUrl = encodeURIComponent(shareUrl)
 
   const handleCopyLink = async () => {
@@ -77,28 +78,34 @@ export function ShareSection({ result, visible }: ShareSectionProps) {
     {
       name: "X",
       icon: XIcon,
-      href: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
+      // X supports text + url as separate params -- keeps character count clean
+      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodedUrl}`,
       tooltip: "post your shame on X",
       accent: "green" as const,
     },
     {
       name: "LinkedIn",
       icon: LinkedInIcon,
-      href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+      // LinkedIn share-offsite only renders the URL card; the mini=true param
+      // triggers their share dialog which pre-fills the summary field via OG tags.
+      // We append the text as the `text` param -- supported in the newer share endpoint.
+      href: `https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodeURIComponent("GitKraken Commit Reality Check")}&summary=${encodeURIComponent(shareText)}&source=GitKraken`,
       tooltip: "make it professional (it won't help)",
       accent: "cyan" as const,
     },
     {
       name: "Reddit",
       icon: RedditIcon,
-      href: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedText}`,
+      // Reddit submit supports url + title + text for the body
+      href: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodeURIComponent("I got my commits roasted and the results were humbling")}&text=${encodeURIComponent(shareText)}`,
       tooltip: "let strangers judge too",
       accent: "orange" as const,
     },
     {
       name: "Bluesky",
       icon: BlueskyIcon,
-      href: `https://bsky.app/intent/compose?text=${encodedText}%20${encodedUrl}`,
+      // Bluesky intent/compose only supports a single `text` param -- include URL inline
+      href: `https://bsky.app/intent/compose?text=${encodeURIComponent(`${shareText}\n${shareUrl}`)}`,
       tooltip: "share on the calmer timeline",
       accent: "cyan" as const,
     },
