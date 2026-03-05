@@ -156,7 +156,7 @@ export function ShareSection({ result, visible }: ShareSectionProps) {
             ) : (
               <>
                 <Link2 className="h-3.5 w-3.5" />
-                COPY LINK
+                COPY ROAST
               </>
             )}
           </button>
