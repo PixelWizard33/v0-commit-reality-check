@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist_Mono } from 'next/font/google'
-import Script from 'next/script'
 
 import './globals.css'
 
@@ -27,12 +26,6 @@ export default function RootLayout({
     <html lang="en" className={geistMono.variable}>
       <body className="font-mono antialiased scanlines">
         {children}
-        {/* HubSpot forms SDK -- afterInteractive so it's ready before modal opens */}
-        <Script
-          src="https://js.hsforms.net/forms/embed/developer/544893.js"
-          strategy="afterInteractive"
-          id="hs-forms-sdk"
-        />
       </body>
     </html>
   )
