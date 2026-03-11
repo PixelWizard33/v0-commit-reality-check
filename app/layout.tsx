@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist_Mono } from 'next/font/google'
+import Script from 'next/script'
 
 import './globals.css'
 
@@ -24,7 +25,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={geistMono.variable}>
-      <body className="font-mono antialiased scanlines">{children}</body>
+      <body className="font-mono antialiased scanlines">
+        {children}
+        {/* HubSpot forms SDK -- loaded once, deferred */}
+        <Script
+          src="https://js.hsforms.net/forms/embed/developer/544893.js"
+          strategy="lazyOnload"
+          id="hs-forms-sdk"
+        />
+      </body>
     </html>
   )
 }

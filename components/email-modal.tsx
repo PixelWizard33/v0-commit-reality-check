@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef } from "react"
 import { X } from "lucide-react"
 
 interface EmailModalProps {
@@ -9,23 +9,67 @@ interface EmailModalProps {
   onClose: () => void
 }
 
+// HubSpot developer embed config
+const HS_PORTAL_ID = "544893"
+const HS_FORM_ID = "95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
+const HS_REGION = "na1"
+
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
-  const [email, setEmail] = useState("")
-  const [error, setError] = useState("")
+  const containerRef = useRef<HTMLDivElement>(null)
+  const formRendered = useRef(false)
+
+  useEffect(() => {
+    if (!open || formRendered.current) return
+
+    // Poll until the HubSpot SDK is ready, then render the form
+    const tryRender = () => {
+      const win = window as typeof window & {
+        HubSpotForms?: {
+          create: (opts: Record<string, unknown>) => void
+        }
+      }
+
+      if (win.HubSpotForms) {
+        win.HubSpotForms.create({
+          region: HS_REGION,
+          portalId: HS_PORTAL_ID,
+          formId: HS_FORM_ID,
+          target: "#hs-form-target",
+          onFormSubmitted: () => {
+            // Give HubSpot a brief moment to flush the submission, then close
+            setTimeout(() => {
+              onSubmit("")
+            }, 600)
+          },
+        })
+        formRendered.current = true
+      } else {
+        setTimeout(tryRender, 150)
+      }
+    }
+
+    tryRender()
+  }, [open, onSubmit])
+
+  // Reset so re-opens (rare) re-render cleanly
+  useEffect(() => {
+    if (!open) {
+      formRendered.current = false
+      if (containerRef.current) {
+        containerRef.current.innerHTML = ""
+      }
+    }
+  }, [open])
 
   if (!open) return null
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email || !email.includes("@") || !email.includes(".")) {
-      setError("ERROR: Invalid email format")
-      return
-    }
-    onSubmit(email)
-  }
-
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-terminal-bg/90 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-terminal-bg/90 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Email capture"
+    >
       <div className="relative mx-4 w-full max-w-md border border-neon-green/40 bg-terminal-bg p-6 glow-border">
         <button
           onClick={onClose}
@@ -47,38 +91,12 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-neon-green">{">"}</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                setError("")
-              }}
-              placeholder="dev@example.com"
-              className="flex-1 border border-border bg-terminal-bg px-3 py-2 text-sm text-neon-green placeholder-neon-green/20 outline-none transition-all focus:border-neon-green/50"
-              autoFocus
-              aria-label="Email address"
-            />
-          </div>
+        {/* HubSpot form mount point */}
+        <div id="hs-form-target" ref={containerRef} className="hs-terminal-form" />
 
-          {error && (
-            <div className="text-xs text-neon-magenta">{error}</div>
-          )}
-
-          <button
-            type="submit"
-            className="border border-neon-green bg-neon-green/10 px-4 py-2 text-sm font-bold tracking-wider text-neon-green transition-all hover:bg-neon-green/20 pulse-glow"
-          >
-            UNLOCK ANALYSIS
-          </button>
-
-          <p className="text-center text-[10px] tracking-wider text-muted-foreground">
-            {"NO SPAM. JUST COMMITS AND CONSEQUENCES."}
-          </p>
-        </form>
+        <p className="mt-4 text-center text-[10px] tracking-wider text-muted-foreground">
+          {"NO SPAM. JUST COMMITS AND CONSEQUENCES."}
+        </p>
       </div>
     </div>
   )
