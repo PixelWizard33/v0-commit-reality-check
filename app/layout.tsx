@@ -27,10 +27,10 @@ export default function RootLayout({
     <html lang="en" className={geistMono.variable}>
       <body className="font-mono antialiased scanlines">
         {children}
-        {/* HubSpot forms SDK -- loaded once, deferred */}
+        {/* HubSpot forms SDK -- afterInteractive so it's ready before modal opens */}
         <Script
           src="https://js.hsforms.net/forms/embed/developer/544893.js"
-          strategy="lazyOnload"
+          strategy="afterInteractive"
           id="hs-forms-sdk"
         />
       </body>

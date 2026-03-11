@@ -9,57 +9,35 @@ interface EmailModalProps {
   onClose: () => void
 }
 
-// HubSpot developer embed config
-const HS_PORTAL_ID = "544893"
-const HS_FORM_ID = "95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
-const HS_REGION = "na1"
-
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const formRendered = useRef(false)
+  const submittedRef = useRef(false)
 
-  useEffect(() => {
-    if (!open || formRendered.current) return
-
-    // Poll until the HubSpot SDK is ready, then render the form
-    const tryRender = () => {
-      const win = window as typeof window & {
-        HubSpotForms?: {
-          create: (opts: Record<string, unknown>) => void
-        }
-      }
-
-      if (win.HubSpotForms) {
-        win.HubSpotForms.create({
-          region: HS_REGION,
-          portalId: HS_PORTAL_ID,
-          formId: HS_FORM_ID,
-          target: "#hs-form-target",
-          onFormSubmitted: () => {
-            // Give HubSpot a brief moment to flush the submission, then close
-            setTimeout(() => {
-              onSubmit("")
-            }, 600)
-          },
-        })
-        formRendered.current = true
-      } else {
-        setTimeout(tryRender, 150)
-      }
-    }
-
-    tryRender()
-  }, [open, onSubmit])
-
-  // Reset so re-opens (rare) re-render cleanly
   useEffect(() => {
     if (!open) {
-      formRendered.current = false
-      if (containerRef.current) {
-        containerRef.current.innerHTML = ""
+      submittedRef.current = false
+      return
+    }
+
+    // Listen for HubSpot's postMessage submission event
+    const handleMessage = (e: MessageEvent) => {
+      if (submittedRef.current) return
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data
+        if (
+          data?.type === "hsFormCallback" &&
+          data?.eventName === "onFormSubmitted"
+        ) {
+          submittedRef.current = true
+          setTimeout(() => onSubmit(""), 600)
+        }
+      } catch {
+        // not a HubSpot message, ignore
       }
     }
-  }, [open])
+
+    window.addEventListener("message", handleMessage)
+    return () => window.removeEventListener("message", handleMessage)
+  }, [open, onSubmit])
 
   if (!open) return null
 
@@ -91,8 +69,17 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           </p>
         </div>
 
-        {/* HubSpot form mount point */}
-        <div id="hs-form-target" ref={containerRef} className="hs-terminal-form" />
+        {/*
+          Declarative HubSpot developer embed.
+          The SDK (loaded in layout.tsx) auto-discovers this div by its
+          class + data attributes and renders the form into it.
+        */}
+        <div
+          className="hs-form-html hs-terminal-form"
+          data-region="na1"
+          data-form-id="95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
+          data-portal-id="544893"
+        />
 
         <p className="mt-4 text-center text-[10px] tracking-wider text-muted-foreground">
           {"NO SPAM. JUST COMMITS AND CONSEQUENCES."}
