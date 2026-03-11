@@ -9,7 +9,7 @@ interface EmailModalProps {
   onClose: () => void
 }
 
-const HS_SCRIPT_SRC = "https://js.hsforms.net/forms/embed/544893.js"
+const HS_SCRIPT_SRC = "https://js.hsforms.net/forms/embed/developer/544893.js"
 const HS_SCRIPT_ID = "hs-forms-sdk"
 
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
@@ -34,40 +34,45 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
     scriptInjectedRef.current = true
   }, [open])
 
-  // MutationObserver: watch for HubSpot's .submitted-message appearing in the DOM.
-  // This is the most reliable signal -- it fires whether or not postMessage works.
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Detect form submission via MutationObserver + polling.
+  // The developer embed (hs-form-html) injects HTML directly -- no iframe --
+  // so we CAN observe .submitted-message appearing in the DOM.
   useEffect(() => {
     if (!open) {
       submittedRef.current = false
       observerRef.current?.disconnect()
+      if (pollRef.current) clearInterval(pollRef.current)
       return
     }
 
     const triggerSubmit = () => {
       if (submittedRef.current) return
       submittedRef.current = true
-      // Brief delay so user sees the "Thank you" state before modal closes
+      observerRef.current?.disconnect()
+      if (pollRef.current) clearInterval(pollRef.current)
+      // Show "Thank you" briefly then close
       setTimeout(() => onSubmit(""), 1200)
     }
 
-    // Watch the entire modal area for .submitted-message being inserted
-    const target = formContainerRef.current ?? document.body
-    const observer = new MutationObserver(() => {
-      if (target.querySelector(".submitted-message")) {
-        triggerSubmit()
-      }
-    })
-    observer.observe(target, { childList: true, subtree: true })
+    const checkForSuccess = () => {
+      if (document.querySelector(".submitted-message")) triggerSubmit()
+    }
+
+    // MutationObserver on body -- catches the DOM insertion immediately
+    const observer = new MutationObserver(checkForSuccess)
+    observer.observe(document.body, { childList: true, subtree: true })
     observerRef.current = observer
 
-    // Fallback: postMessage for environments where MutationObserver misses it
+    // Polling fallback every 300ms in case observer fires before DOM settles
+    pollRef.current = setInterval(checkForSuccess, 300)
+
+    // postMessage fallback
     const handleMessage = (e: MessageEvent) => {
       try {
         const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data
-        if (
-          data?.type === "hsFormCallback" &&
-          data?.eventName === "onFormSubmitted"
-        ) {
+        if (data?.type === "hsFormCallback" && data?.eventName === "onFormSubmitted") {
           triggerSubmit()
         }
       } catch { /* not a HubSpot message */ }
@@ -76,6 +81,7 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
 
     return () => {
       observer.disconnect()
+      if (pollRef.current) clearInterval(pollRef.current)
       window.removeEventListener("message", handleMessage)
     }
   }, [open, onSubmit])
@@ -114,9 +120,10 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           </p>
         </div>
 
-        {/* HubSpot simple embed -- SDK auto-discovers hs-form-frame divs */}
+        {/* HubSpot developer embed -- renders HTML directly (not an iframe),
+            so MutationObserver can detect .submitted-message on submission */}
         <div
-          className="hs-form-frame hs-terminal-form"
+          className="hs-form-html hs-terminal-form"
           data-region="na1"
           data-form-id="95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
           data-portal-id="544893"
