@@ -13,6 +13,7 @@ import { RewriteActions } from "@/components/output/rewrite-actions"
 import { CTASection } from "@/components/output/cta-section"
 import { ShareSection } from "@/components/output/share-section"
 import { CopyResults } from "@/components/output/copy-results"
+import { LoadingSequence } from "@/components/loading-sequence"
 import {
   generateAnalysis,
   generateRewrites,
@@ -30,6 +31,8 @@ export default function Home() {
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [showOutput, setShowOutput] = useState(false)
   const [isRunning, setIsRunning] = useState(false)
+  const [showLoader, setShowLoader] = useState(false)
+  const [pendingEmailRun, setPendingEmailRun] = useState(false)
   const [muted, setMuted] = useState(false)
   const [soundPlayed, setSoundPlayed] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -63,35 +66,57 @@ export default function Home() {
     if (validCommits.length === 0) return
 
     setIsRunning(true)
+    setShowLoader(true)
     setShowOutput(false)
     setSoundPlayed(false)
 
-    setTimeout(() => {
-      const analysis = generateAnalysis(validCommits, intensity)
-      setResult(analysis)
-      setIsRunning(false)
-      setShowOutput(true)
-    }, 800)
+    // Pre-compute analysis so it's ready when loader finishes
+    const analysis = generateAnalysis(validCommits, intensity)
+    setResult(analysis)
   }, [commits, intensity])
+
+  // Called by LoadingSequence when progress bar completes
+  const handleLoadComplete = useCallback(() => {
+    setShowLoader(false)
+    setIsRunning(false)
+    setShowOutput(true)
+  }, [])
 
   const handleRunClick = () => {
     const validCommits = commits.filter((c) => c.trim().length > 0)
     if (validCommits.length === 0) return
 
     if (!emailCaptured) {
-      setShowEmailModal(true)
+      // Show loader first, then gate on email when it finishes
+      setPendingEmailRun(true)
+      setIsRunning(true)
+      setShowLoader(true)
+      setShowOutput(false)
+      setSoundPlayed(false)
+      const analysis = generateAnalysis(validCommits, intensity)
+      setResult(analysis)
       return
     }
 
     runAnalysis()
   }
 
+  // When loader finishes and email hasn't been captured yet, show the email gate
+  const handleLoadCompleteWithEmailCheck = useCallback(() => {
+    setShowLoader(false)
+    setIsRunning(false)
+    if (pendingEmailRun && !emailCaptured) {
+      setPendingEmailRun(false)
+      setShowEmailModal(true)
+    } else {
+      setShowOutput(true)
+    }
+  }, [pendingEmailRun, emailCaptured])
+
   const handleEmailSubmit = (email: string) => {
-    // Hook for future backend email storage
-    console.log("Email captured:", email)
     setEmailCaptured(true)
     setShowEmailModal(false)
-    runAnalysis()
+    setShowOutput(true)
   }
 
   const handleRewrite = (mode: string) => {
@@ -154,6 +179,12 @@ export default function Home() {
               {isRunning ? "ANALYZING..." : "RUN ANALYSIS"}
             </button>
           </section>
+
+          {/* Loading Sequence */}
+          <LoadingSequence
+            visible={showLoader}
+            onComplete={handleLoadCompleteWithEmailCheck}
+          />
 
           {/* Output Section */}
           {showOutput && result && (

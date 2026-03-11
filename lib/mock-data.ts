@@ -84,6 +84,18 @@ const friendlyRoasts: TaggedRoast[] = [
   { text: "I admire the confidence it took to push this without elaboration." },
   { text: "This commit message sparks joy. And also confusion.", tags: ["refactor", "cleanup", "clean"] },
   { text: "Technically a commit message. Technically." },
+  { text: "The commit that launched a thousand confused pull requests.", tags: ["merge", "pr"] },
+  { text: "Future archaeologists will find this and weep.", tags: ["legacy", "old", "ancient"] },
+  { text: "This is what 'just shipping it' looks like in the git log." },
+  { text: "You committed but forgot to commit to the message.", tags: ["wip", "draft"] },
+  { text: "Somewhere between vague and invisible on the clarity scale." },
+  { text: "You've managed to communicate less than the diff itself." },
+  { text: "This commit is a mystery box. Nobody wants to open it.", tags: ["fix", "patch"] },
+  { text: "The ellipsis of commit messages. It implies more than it says." },
+  { text: "Peer reviewed? More like feared reviewed.", tags: ["review", "pr", "merge"] },
+  { text: "Your future teammates just added you to their 'do not pair with' list." },
+  { text: "This has the same energy as writing 'email' in the subject line of an email." },
+  { text: "Clear as mud. Helpful as a screen door on a submarine." },
 ]
 
 const classicRoasts: TaggedRoast[] = [
@@ -107,6 +119,18 @@ const classicRoasts: TaggedRoast[] = [
   { text: "This is the 'I'll explain in the PR' of commit messages. You won't." },
   { text: "A commit so vague it could be a horoscope." },
   { text: "Your commit history reads like a mystery novel with all the pages ripped out.", tags: ["merge", "rebase"] },
+  { text: "Not a commit message. A cry for help." },
+  { text: "Whoever inherits this codebase will not be reading this and thinking well of you." },
+  { text: "This is giving 'I pushed, it's the weekend, goodbye' energy." },
+  { text: "This is the commit equivalent of writing 'see attached' and attaching nothing.", tags: ["docs", "readme"] },
+  { text: "Peer review just became a hostage negotiation.", tags: ["review", "pr"] },
+  { text: "When in doubt, write something vague and run.", tags: ["wip", "tmp", "quick"] },
+  { text: "This message is technically true and functionally useless.", tags: ["update", "change"] },
+  { text: "You've invented a new genre: commit fiction." },
+  { text: "Some day, someone will bisect this commit. That day will be a bad day.", tags: ["fix", "revert"] },
+  { text: "The git log is now 10% less useful because of this." },
+  { text: "A commit that says everything and yet somehow nothing." },
+  { text: "Your naming instincts are... unique.", tags: ["rename", "refactor"] },
 ]
 
 const savageRoasts: TaggedRoast[] = [
@@ -130,6 +154,18 @@ const savageRoasts: TaggedRoast[] = [
   { text: "Your future self isn't going to debug this. They're going to rewrite it from scratch." },
   { text: "Bold of you to assume anyone can reverse-engineer intent from this.", tags: ["wip", "tmp", "todo"] },
   { text: "This commit is why developers have trust issues." },
+  { text: "This is legally a commit message. Morally, it is an act of violence." },
+  { text: "You've done something technically legal that should absolutely be illegal.", tags: ["fix", "hotfix"] },
+  { text: "Your git log reads like someone rage-typed during an outage.", tags: ["revert", "rollback", "undo"] },
+  { text: "A toddler with a keyboard could have written more context." },
+  { text: "This is how production fires start.", tags: ["main", "master", "prod", "deploy"] },
+  { text: "The PR description says 'minor fix'. Nothing about this is minor.", tags: ["fix", "minor", "small"] },
+  { text: "This message would fail a captcha. It provides that little signal." },
+  { text: "Future dev: 'who did this?' git blame: '...you.'", tags: ["refactor", "rewrite", "cleanup"] },
+  { text: "You committed this knowing exactly what you were doing. That's the scary part." },
+  { text: "This message radiates 'I will not be available this weekend' energy." },
+  { text: "An archaeologist in 2047 will find this and add it to their dissertation on technical debt." },
+  { text: "Not even your on-call rotation could save you from this git blame." },
 ]
 
 const existentialRoasts: TaggedRoast[] = [
@@ -153,6 +189,18 @@ const existentialRoasts: TaggedRoast[] = [
   { text: "This message is a philosophical paradox: it exists, yet says nothing." },
   { text: "In the infinite branches of the multiverse, not one has a good version of this commit." },
   { text: "The commit was pushed. The meaning was not.", tags: ["merge", "squash"] },
+  { text: "In committing this, you have committed to nothing." },
+  { text: "The code changed. Did we? Did any of us, really?" },
+  { text: "This commit is a haiku of meaninglessness. Five syllables of confusion." },
+  { text: "We build, we ship, we forget what we built. This commit is proof." },
+  { text: "The branch was created in hope. The commit, in hubris.", tags: ["feature", "feat"] },
+  { text: "Version control was invented so we could understand history. You have broken that covenant." },
+  { text: "The machine accepted this commit. The machine does not judge. I do.", tags: ["push", "merge"] },
+  { text: "In naming this commit, you named nothing. The void stares back." },
+  { text: "Perhaps the real message was the friends we made along the way. Not this." },
+  { text: "A commit message with no soul, from a developer with too many open tabs." },
+  { text: "History is written by the victors. Your git history is written by no one." },
+  { text: "This is the heat death of documentation." },
 ]
 
 const pmTranslations = [
