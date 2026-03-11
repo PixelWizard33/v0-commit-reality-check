@@ -15,9 +15,11 @@ const HS_SCRIPT_ID = "hs-forms-sdk"
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
   const submittedRef = useRef(false)
   const scriptInjectedRef = useRef(false)
+  const formContainerRef = useRef<HTMLDivElement>(null)
+  const observerRef = useRef<MutationObserver | null>(null)
 
-  // Inject the HubSpot script once the modal first opens.
-  // The div is always mounted below so the SDK finds it immediately on load.
+  // Inject the HubSpot script once on first open.
+  // The div is always mounted so the SDK finds it immediately.
   useEffect(() => {
     if (!open || scriptInjectedRef.current) return
     if (document.getElementById(HS_SCRIPT_ID)) {
@@ -32,81 +34,98 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
     scriptInjectedRef.current = true
   }, [open])
 
-  // Listen for HubSpot's postMessage submission event
+  // MutationObserver: watch for HubSpot's .submitted-message appearing in the DOM.
+  // This is the most reliable signal -- it fires whether or not postMessage works.
   useEffect(() => {
     if (!open) {
       submittedRef.current = false
+      observerRef.current?.disconnect()
       return
     }
 
-    const handleMessage = (e: MessageEvent) => {
+    const triggerSubmit = () => {
       if (submittedRef.current) return
+      submittedRef.current = true
+      // Brief delay so user sees the "Thank you" state before modal closes
+      setTimeout(() => onSubmit(""), 1200)
+    }
+
+    // Watch the entire modal area for .submitted-message being inserted
+    const target = formContainerRef.current ?? document.body
+    const observer = new MutationObserver(() => {
+      if (target.querySelector(".submitted-message")) {
+        triggerSubmit()
+      }
+    })
+    observer.observe(target, { childList: true, subtree: true })
+    observerRef.current = observer
+
+    // Fallback: postMessage for environments where MutationObserver misses it
+    const handleMessage = (e: MessageEvent) => {
       try {
         const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data
         if (
           data?.type === "hsFormCallback" &&
           data?.eventName === "onFormSubmitted"
         ) {
-          submittedRef.current = true
-          setTimeout(() => onSubmit(""), 600)
+          triggerSubmit()
         }
-      } catch {
-        // not a HubSpot message, ignore
-      }
+      } catch { /* not a HubSpot message */ }
     }
-
     window.addEventListener("message", handleMessage)
-    return () => window.removeEventListener("message", handleMessage)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("message", handleMessage)
+    }
   }, [open, onSubmit])
 
   return (
-    <>
-      {/* The hs-form-frame div must always be in the DOM so the SDK
-          finds it when the script loads. We show/hide the modal overlay
-          via CSS rather than conditional rendering. */}
+    <div
+      className={`fixed inset-0 z-40 flex items-center justify-center bg-terminal-bg/90 backdrop-blur-sm transition-opacity duration-200 ${
+        open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+      }`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Email capture"
+      aria-hidden={!open}
+    >
       <div
-        className={`fixed inset-0 z-40 flex items-center justify-center bg-terminal-bg/90 backdrop-blur-sm transition-opacity duration-200 ${
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Email capture"
-        aria-hidden={!open}
+        ref={formContainerRef}
+        className="relative mx-4 w-full max-w-md border border-neon-green/40 bg-terminal-bg p-6 glow-border"
       >
-        <div className="relative mx-4 w-full max-w-md border border-neon-green/40 bg-terminal-bg p-6 glow-border">
-          <button
-            onClick={onClose}
-            className="absolute right-3 top-3 text-muted-foreground transition-colors hover:text-neon-green"
-            aria-label="Close modal"
-          >
-            <X className="h-4 w-4" />
-          </button>
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-3 text-muted-foreground transition-colors hover:text-neon-green"
+          aria-label="Close modal"
+        >
+          <X className="h-4 w-4" />
+        </button>
 
-          <div className="mb-6 flex flex-col gap-2">
-            <div className="text-xs tracking-wider text-muted-foreground">
-              {"// AUTHENTICATION REQUIRED"}
-            </div>
-            <h2 className="text-lg font-bold tracking-wider text-neon-green neon-glow-sm">
-              ACCESS GRANTED PENDING
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Drop your email to unlock the full analysis.
-            </p>
+        <div className="mb-6 flex flex-col gap-2">
+          <div className="text-xs tracking-wider text-muted-foreground">
+            {"// AUTHENTICATION REQUIRED"}
           </div>
-
-          {/* HubSpot simple embed -- class hs-form-frame is auto-discovered by the SDK */}
-          <div
-            className="hs-form-frame hs-terminal-form"
-            data-region="na1"
-            data-form-id="95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
-            data-portal-id="544893"
-          />
-
-          <p className="mt-4 text-center text-[10px] tracking-wider text-muted-foreground">
-            {"NO SPAM. JUST COMMITS AND CONSEQUENCES."}
+          <h2 className="text-lg font-bold tracking-wider text-neon-green neon-glow-sm">
+            ACCESS GRANTED PENDING
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Drop your email to unlock the full analysis.
           </p>
         </div>
+
+        {/* HubSpot simple embed -- SDK auto-discovers hs-form-frame divs */}
+        <div
+          className="hs-form-frame hs-terminal-form"
+          data-region="na1"
+          data-form-id="95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
+          data-portal-id="544893"
+        />
+
+        <p className="mt-4 text-center text-[10px] tracking-wider text-muted-foreground">
+          {"NO SPAM. JUST COMMITS AND CONSEQUENCES."}
+        </p>
       </div>
-    </>
+    </div>
   )
 }

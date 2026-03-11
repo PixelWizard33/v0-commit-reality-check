@@ -233,6 +233,21 @@
   font-size: 0.75rem;
 }
 
+/* Submitted / "Thank you" state */
+.hs-terminal-form .submitted-message,
+.hs-terminal-form .submitted-message p,
+.hs-terminal-form .submitted-message span,
+.hs-terminal-form .submitted-message h1,
+.hs-terminal-form .submitted-message h2 {
+  font-family: var(--font-geist-mono), ui-monospace, monospace !important;
+  color: #64F74E !important;
+  font-size: 0.875rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em;
+  text-align: center;
+  padding: 1rem 0;
+}
+
 /* No layout shift: reserve minimum height while form loads */
 .hs-terminal-form:empty {
   min-height: 80px;
