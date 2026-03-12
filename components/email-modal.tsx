@@ -86,20 +86,40 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       setShowButton(true)
     }
 
-    const startObserver = () => {
+    // Check multiple selectors HubSpot uses across SDK versions
+    const isSubmitted = () => {
+      const mount = document.getElementById(MOUNT_ID)
+      if (!mount) return false
+      return !!(
+        mount.querySelector(".submitted-message") ||
+        mount.querySelector(".hs-form__thank-you") ||
+        mount.querySelector("[class*='thank']") ||
+        mount.querySelector("[class*='success']") ||
+        // Fallback: if the form element is gone, submission happened
+        (!mount.querySelector("form") && !mount.querySelector("iframe") && mount.innerText.trim().length > 0)
+      )
+    }
+
+    const startWatching = () => {
       const mountNode = document.getElementById(MOUNT_ID)
       if (!mountNode) return
+
+      // MutationObserver on body to catch any DOM change
       const observer = new MutationObserver(() => {
-        if (mountNode.querySelector(".submitted-message")) triggerSubmit()
+        if (isSubmitted()) triggerSubmit()
       })
-      observer.observe(mountNode, { childList: true, subtree: true })
+      observer.observe(document.body, { childList: true, subtree: true })
       observerRef.current = observer
+
+      // Polling fallback every 400ms
+      pollRef.current = setInterval(() => {
+        if (isSubmitted()) triggerSubmit()
+      }, 400)
     }
 
     const createForm = () => {
       if (!window.hbspt || formCreatedRef.current) return
       formCreatedRef.current = true
-      startObserver()
       window.hbspt.forms.create({
         region: "na1",
         portalId: HS_PORTAL_ID,
@@ -108,6 +128,8 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
         onFormSubmit: () => triggerSubmit(),
         onFormSubmitted: () => triggerSubmit(),
       })
+      // Start watching after form is injected
+      setTimeout(startWatching, 500)
     }
 
     if (window.hbspt) {
