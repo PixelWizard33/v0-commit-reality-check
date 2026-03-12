@@ -13,6 +13,7 @@ import { CTASection } from "@/components/output/cta-section"
 import { ShareSection } from "@/components/output/share-section"
 import { CopyResults } from "@/components/output/copy-results"
 import { LoadingSequence } from "@/components/loading-sequence"
+import { EmailGate } from "@/components/email-gate"
 import {
   generateAnalysis,
   generateRewrites,
@@ -29,6 +30,8 @@ export default function Home() {
   const [showOutput, setShowOutput] = useState(false)
   const [isRunning, setIsRunning] = useState(false)
   const [showLoader, setShowLoader] = useState(false)
+  const [showEmailGate, setShowEmailGate] = useState(false)
+  const [emailCaptured, setEmailCaptured] = useState(false)
   const [muted, setMuted] = useState(false)
   const [soundPlayed, setSoundPlayed] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -75,6 +78,18 @@ export default function Home() {
   const handleLoadComplete = useCallback(() => {
     setShowLoader(false)
     setIsRunning(false)
+    if (emailCaptured) {
+      // Already gave email — go straight to results
+      setShowOutput(true)
+    } else {
+      // Show email gate first
+      setShowEmailGate(true)
+    }
+  }, [emailCaptured])
+
+  const handleEmailSubmit = useCallback(() => {
+    setEmailCaptured(true)
+    setShowEmailGate(false)
     setShowOutput(true)
   }, [])
 
@@ -217,6 +232,12 @@ export default function Home() {
           </div>
         </div>
       </div>
+      {/* Email Gate Modal */}
+      <EmailGate
+        open={showEmailGate}
+        onSubmit={handleEmailSubmit}
+        onClose={() => { setShowEmailGate(false); setIsRunning(false) }}
+      />
     </div>
   )
 }
