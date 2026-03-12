@@ -25,12 +25,17 @@ declare global {
 
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
   const [isMounted, setIsMounted] = useState(false)
+  const [showButton, setShowButton] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const formCreatedRef = useRef(false)
   const submittedRef = useRef(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  useEffect(() => { setIsMounted(true) }, [])
+  // Reset button state when modal closes
+  useEffect(() => {
+    if (!open) setShowButton(false)
+  }, [open])
+
 
   // Create a bare div outside React's tree and move it into the modal wrapper.
   // HubSpot renders into this node -- React never diffs its children.
@@ -74,8 +79,8 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       if (submittedRef.current) return
       submittedRef.current = true
       if (pollRef.current) clearInterval(pollRef.current)
-      // Show "Thank you" state briefly, then close and reveal results
-      setTimeout(() => onSubmit(""), 1500)
+      // Show the "View Your Roast" button instead of auto-closing
+      setShowButton(true)
     }
 
     // MutationObserver on the mount node -- since hbspt renders HTML directly
@@ -177,6 +182,15 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
         {/* wrapperRef receives the HubSpot mount node via DOM appendChild.
             React never renders children here -- no hydration conflict. */}
         <div ref={wrapperRef} className="min-h-[80px]" />
+
+        {showButton && (
+          <button
+            onClick={() => onSubmit("")}
+            className="mt-4 w-full border border-neon-green bg-neon-green/10 px-4 py-3 text-sm font-bold tracking-widest text-neon-green transition-all hover:bg-neon-green/20 pulse-glow"
+          >
+            VIEW YOUR ROAST
+          </button>
+        )}
 
         <p className="mt-3 text-center text-[10px] tracking-wider text-muted-foreground">
           {"NO SPAM. JUST COMMITS AND CONSEQUENCES."}
