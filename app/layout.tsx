@@ -25,6 +25,16 @@ export default function RootLayout({
   return (
     <html lang="en" className={geistMono.variable}>
       <body className="font-mono antialiased scanlines">
+        {/* Remove any HubSpot scripts/nodes left over from browser cache */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function(){
+            ['hs-forms-sdk','hs-form-mount'].forEach(function(id){
+              var el = document.getElementById(id);
+              if (el) el.remove();
+            });
+            document.querySelectorAll('script[src*="hsforms"],script[src*="hsappstatic"]').forEach(function(s){ s.remove(); });
+          })();
+        `}} />
         {children}
       </body>
     </html>
