@@ -4,7 +4,6 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { TerminalHeader } from "@/components/terminal-header"
 import { CommitInput } from "@/components/commit-input"
 import { RoastControls } from "@/components/roast-controls"
-import { EmailModal } from "@/components/email-modal"
 import { ScoreHeader } from "@/components/output/score-header"
 import { RoastOutput } from "@/components/output/roast-output"
 import { TranslatorPanels } from "@/components/output/translator-panels"
@@ -26,13 +25,10 @@ export default function Home() {
   const [commits, setCommits] = useState<string[]>([""])
   const [intensity, setIntensity] = useState<RoastIntensity>("classic")
   const [helpfulMode, setHelpfulMode] = useState(true)
-  const [emailCaptured, setEmailCaptured] = useState(false)
-  const [showEmailModal, setShowEmailModal] = useState(false)
   const [result, setResult] = useState<AnalysisResult | null>(null)
   const [showOutput, setShowOutput] = useState(false)
   const [isRunning, setIsRunning] = useState(false)
   const [showLoader, setShowLoader] = useState(false)
-  const [pendingEmailRun, setPendingEmailRun] = useState(false)
   const [muted, setMuted] = useState(false)
   const [soundPlayed, setSoundPlayed] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -85,38 +81,7 @@ export default function Home() {
   const handleRunClick = () => {
     const validCommits = commits.filter((c) => c.trim().length > 0)
     if (validCommits.length === 0) return
-
-    if (!emailCaptured) {
-      // Show loader first, then gate on email when it finishes
-      setPendingEmailRun(true)
-      setIsRunning(true)
-      setShowLoader(true)
-      setShowOutput(false)
-      setSoundPlayed(false)
-      const analysis = generateAnalysis(validCommits, intensity)
-      setResult(analysis)
-      return
-    }
-
     runAnalysis()
-  }
-
-  // When loader finishes and email hasn't been captured yet, show the email gate
-  const handleLoadCompleteWithEmailCheck = useCallback(() => {
-    setShowLoader(false)
-    setIsRunning(false)
-    if (pendingEmailRun && !emailCaptured) {
-      setPendingEmailRun(false)
-      setShowEmailModal(true)
-    } else {
-      setShowOutput(true)
-    }
-  }, [pendingEmailRun, emailCaptured])
-
-  const handleEmailSubmit = (email: string) => {
-    setEmailCaptured(true)
-    setShowEmailModal(false)
-    setShowOutput(true)
   }
 
   const handleRewrite = (mode: string) => {
@@ -183,7 +148,7 @@ export default function Home() {
           {/* Loading Sequence */}
           <LoadingSequence
             visible={showLoader}
-            onComplete={handleLoadCompleteWithEmailCheck}
+            onComplete={handleLoadComplete}
           />
 
           {/* Output Section */}
@@ -252,13 +217,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      {/* Email Modal */}
-      <EmailModal
-        open={showEmailModal}
-        onSubmit={handleEmailSubmit}
-        onClose={() => setShowEmailModal(false)}
-      />
     </div>
   )
 }

@@ -146,8 +146,6 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(120 100% 25%);
 }
-
-/* ─── HubSpot form terminal theme overrides ─────────────────────────────── */
 .hs-terminal-form .hs-form,
 .hs-terminal-form form {
   display: flex;
