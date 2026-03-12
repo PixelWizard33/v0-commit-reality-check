@@ -9,55 +9,96 @@ interface EmailModalProps {
   onClose: () => void
 }
 
-// HubSpot embed iframe URL -- the hs-form-frame embed renders as an iframe
-// with this src. We load it directly so React never touches HubSpot's DOM.
-const HS_IFRAME_SRC =
-  "https://share-eu1.hsforms.com/1" +
-  "95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab" +
-  "?embed=true&portalId=544893"
+const HS_PORTAL_ID = "544893"
+const HS_FORM_ID = "95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
+const HS_SCRIPT_ID = "hs-forms-sdk"
+const HS_SCRIPT_SRC = "https://js.hsforms.net/forms/embed/v2.js"
+const FORM_DIV_ID = "hs-form-mount"
+
+declare global {
+  interface Window {
+    hbspt?: {
+      forms: {
+        create: (opts: Record<string, unknown>) => void
+      }
+    }
+  }
+}
 
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
   const [isMounted, setIsMounted] = useState(false)
+  const formCreatedRef = useRef(false)
   const submittedRef = useRef(false)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => { setIsMounted(true) }, [])
 
+  // Load the HubSpot forms v2 script and call hbspt.forms.create()
+  // targeting a plain div by ID -- imperative, no auto-discovery conflict.
   useEffect(() => {
-    if (!open) {
-      submittedRef.current = false
+    if (!open || !isMounted || formCreatedRef.current) return
+
+    const createForm = () => {
+      if (!window.hbspt || formCreatedRef.current) return
+      formCreatedRef.current = true
+      window.hbspt.forms.create({
+        region: "na1",
+        portalId: HS_PORTAL_ID,
+        formId: HS_FORM_ID,
+        target: `#${FORM_DIV_ID}`,
+        onFormSubmitted: () => {
+          if (submittedRef.current) return
+          submittedRef.current = true
+          setTimeout(() => onSubmit(""), 1500)
+        },
+      })
+    }
+
+    if (window.hbspt) {
+      createForm()
       return
     }
 
-    const triggerSubmit = () => {
-      if (submittedRef.current) return
-      submittedRef.current = true
-      setTimeout(() => onSubmit(""), 1500)
-    }
-
-    const handleMessage = (e: MessageEvent) => {
-      try {
-        const raw = typeof e.data === "string" ? JSON.parse(e.data) : e.data
-        // HubSpot sends multiple event shapes depending on form type
-        if (
-          raw?.type === "hsFormCallback" ||
-          raw?.eventName === "onFormSubmitted" ||
-          raw?.event === "onFormSubmitted" ||
-          raw?.type === "form-submitted"
-        ) {
-          if (
-            !raw.eventName ||
-            raw.eventName === "onFormSubmitted" ||
-            raw.type === "form-submitted"
-          ) {
-            triggerSubmit()
+    // Script not yet loaded -- inject it then wait
+    if (!document.getElementById(HS_SCRIPT_ID)) {
+      const script = document.createElement("script")
+      script.id = HS_SCRIPT_ID
+      script.src = HS_SCRIPT_SRC
+      script.onload = () => {
+        // Poll for hbspt to be ready after script load
+        pollRef.current = setInterval(() => {
+          if (window.hbspt) {
+            if (pollRef.current) clearInterval(pollRef.current)
+            createForm()
           }
+        }, 100)
+      }
+      document.body.appendChild(script)
+    } else {
+      // Script tag exists but may still be loading
+      pollRef.current = setInterval(() => {
+        if (window.hbspt) {
+          if (pollRef.current) clearInterval(pollRef.current)
+          createForm()
         }
-      } catch { /* not a HubSpot message */ }
+      }, 100)
     }
 
-    window.addEventListener("message", handleMessage)
-    return () => window.removeEventListener("message", handleMessage)
-  }, [open, onSubmit])
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [open, isMounted, onSubmit])
+
+  // Reset on close so re-opening works
+  useEffect(() => {
+    if (!open) {
+      submittedRef.current = false
+      formCreatedRef.current = false
+      // Clear the mount div so HubSpot can re-render into it next open
+      const el = document.getElementById(FORM_DIV_ID)
+      if (el) el.innerHTML = ""
+    }
+  }, [open])
 
   return (
     <div
@@ -90,16 +131,10 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           </p>
         </div>
 
-        {/* Plain iframe -- completely outside React's reconciler.
-            HubSpot renders inside its own document, zero DOM conflict. */}
+        {/* Plain div targeted by hbspt.forms.create() -- React never renders
+            children here so there is no hydration conflict with HubSpot's SDK */}
         {isMounted && (
-          <iframe
-            src={HS_IFRAME_SRC}
-            title="Email signup"
-            className="w-full border-0"
-            style={{ height: 180, background: "transparent" }}
-            sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
-          />
+          <div id={FORM_DIV_ID} className="hs-terminal-form min-h-[80px]" />
         )}
 
         <p className="mt-3 text-center text-[10px] tracking-wider text-muted-foreground">
