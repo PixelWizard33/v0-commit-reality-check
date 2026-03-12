@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type MutableRefObject } from "react"
 import { X } from "lucide-react"
 
 interface EmailModalProps {
@@ -70,6 +70,29 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
   useEffect(() => {
     if (!open || !isMounted || formCreatedRef.current) return
 
+    const triggerSubmit = () => {
+      if (submittedRef.current) return
+      submittedRef.current = true
+      if (pollRef.current) clearInterval(pollRef.current)
+      // Show "Thank you" state briefly, then close and reveal results
+      setTimeout(() => onSubmit(""), 1500)
+    }
+
+    // MutationObserver on the mount node -- since hbspt renders HTML directly
+    // into our div, we can watch for .submitted-message appearing
+    const mountNode = document.getElementById(MOUNT_ID)
+    if (mountNode) {
+      const observer = new MutationObserver(() => {
+        if (mountNode.querySelector(".submitted-message")) {
+          observer.disconnect()
+          triggerSubmit()
+        }
+      })
+      observer.observe(mountNode, { childList: true, subtree: true })
+      // Store cleanup on the ref so we can disconnect on unmount
+      ;(submittedRef as MutableRefObject<unknown>).__observer = observer
+    }
+
     const createForm = () => {
       if (!window.hbspt || formCreatedRef.current) return
       formCreatedRef.current = true
@@ -78,11 +101,10 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
         portalId: HS_PORTAL_ID,
         formId: HS_FORM_ID,
         target: `#${MOUNT_ID}`,
-        onFormSubmitted: () => {
-          if (submittedRef.current) return
-          submittedRef.current = true
-          setTimeout(() => onSubmit(""), 1500)
-        },
+        // onFormSubmit fires before redirect (v2 API)
+        onFormSubmit: () => triggerSubmit(),
+        // onFormSubmitted fires after (some versions)
+        onFormSubmitted: () => triggerSubmit(),
       })
     }
 
@@ -113,7 +135,12 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       }, 100)
     }
 
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const obs = (submittedRef as any).__observer as MutationObserver | undefined
+      obs?.disconnect()
+    }
   }, [open, isMounted, onSubmit])
 
   return (
