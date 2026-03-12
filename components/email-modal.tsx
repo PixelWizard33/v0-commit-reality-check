@@ -9,137 +9,88 @@ interface EmailModalProps {
   onClose: () => void
 }
 
-const HS_PORTAL_ID = "544893"
-const HS_FORM_ID = "95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
-const HS_SCRIPT_ID = "hs-forms-sdk"
-const HS_SCRIPT_SRC = "https://js.hsforms.net/forms/v2.js"
-const MOUNT_ID = "hs-form-mount"
-
-declare global {
-  interface Window {
-    hbspt?: {
-      forms: { create: (opts: Record<string, unknown>) => void }
-    }
-  }
-}
+const HS_SCRIPT_ID = "hs-embed-sdk"
+const HS_SCRIPT_SRC = "https://js.hsforms.net/forms/embed/544893.js"
 
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
   const [showButton, setShowButton] = useState(false)
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  const formCreatedRef = useRef(false)
   const submittedRef = useRef(false)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const observerRef = useRef<MutationObserver | null>(null)
+  const scriptLoadedRef = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  // Swallow non-fatal HubSpot internal React errors
+  // Reset state when modal closes
   useEffect(() => {
-    const handler = (e: ErrorEvent) => {
-      if (e.filename?.includes("hsappstatic") || e.filename?.includes("hsforms")) {
-        e.preventDefault()
-        e.stopPropagation()
-      }
-    }
-    window.addEventListener("error", handler)
-    return () => window.removeEventListener("error", handler)
-  }, [])
-
-  // Create the persistent HubSpot mount node on body (outside React tree) once
-  useEffect(() => {
-    if (document.getElementById(MOUNT_ID)) return
-    const node = document.createElement("div")
-    node.id = MOUNT_ID
-    node.className = "hs-terminal-form"
-    document.body.appendChild(node)
-  }, [])
-
-  // Single effect that handles: move node, load SDK, watch for submission
-  useEffect(() => {
-    const mountNode = document.getElementById(MOUNT_ID)
-    const wrapper = wrapperRef.current
-
     if (!open) {
-      // Park the node back on body when closed
-      if (mountNode && wrapper && mountNode.parentNode === wrapper) {
-        document.body.appendChild(mountNode)
-      }
       setShowButton(false)
       submittedRef.current = false
-      if (pollRef.current) clearInterval(pollRef.current)
-      observerRef.current?.disconnect()
-      return
     }
+  }, [open])
 
-    // Move the mount node into the visible wrapper
-    if (mountNode && wrapper && mountNode.parentNode !== wrapper) {
-      wrapper.appendChild(mountNode)
-    }
+  // Load the simple embed script once on first open
+  // hs-form-frame renders inside its own sandboxed iframe -- no React conflict
+  useEffect(() => {
+    if (!open || scriptLoadedRef.current) return
+    scriptLoadedRef.current = true
+    if (document.getElementById(HS_SCRIPT_ID)) return
+    const script = document.createElement("script")
+    script.id = HS_SCRIPT_ID
+    script.src = HS_SCRIPT_SRC
+    script.defer = true
+    document.head.appendChild(script)
+  }, [open])
 
-    const triggerSubmit = () => {
+  // Detect submission via postMessage from the HubSpot iframe
+  useEffect(() => {
+    if (!open) return
+
+    const handleMessage = (e: MessageEvent) => {
       if (submittedRef.current) return
-      console.log("[v0] HubSpot form submitted -- showing button")
-      submittedRef.current = true
-      if (pollRef.current) clearInterval(pollRef.current)
-      observerRef.current?.disconnect()
-      setShowButton(true)
+      try {
+        const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data
+        // HubSpot sends multiple event shapes depending on SDK version
+        const isSubmission =
+          (data?.type === "hsFormCallback" && data?.eventName === "onFormSubmitted") ||
+          data?.eventName === "onFormSubmitted" ||
+          data?.event === "onFormSubmitted" ||
+          data?.type === "form-submission"
+        if (isSubmission) {
+          submittedRef.current = true
+          setShowButton(true)
+        }
+      } catch {
+        // not JSON or not a HubSpot message, ignore
+      }
     }
 
-    const checkSubmitted = () => {
-      const mount = document.getElementById(MOUNT_ID)
-      if (!mount) return false
-      const text = mount.innerText.toLowerCase()
-      const result = !!(
-        mount.querySelector(".submitted-message") ||
-        mount.querySelector(".hs-form__thank-you") ||
-        mount.querySelector("[class*='thank']") ||
-        text.includes("thank you") ||
-        text.includes("thanks")
-      )
-      if (result) console.log("[v0] Submission detected via DOM check")
-      return result
-    }
+    // Also poll the iframe title/src as a fallback
+    // HubSpot redirects the iframe to a thank-you page after submit
+    const pollId = setInterval(() => {
+      if (submittedRef.current || !containerRef.current) return
+      const iframe = containerRef.current.querySelector("iframe")
+      if (!iframe) return
+      try {
+        const src = iframe.contentWindow?.location?.href ?? ""
+        if (src.includes("submitted") || src.includes("thank")) {
+          submittedRef.current = true
+          setShowButton(true)
+          clearInterval(pollId)
+        }
+      } catch {
+        // cross-origin, expected
+      }
+      // Fallback: check iframe title attribute which HubSpot updates
+      const title = iframe.getAttribute("title") ?? ""
+      if (title.toLowerCase().includes("thank") || title.toLowerCase().includes("success")) {
+        submittedRef.current = true
+        setShowButton(true)
+        clearInterval(pollId)
+      }
+    }, 500)
 
-    // Check immediately (already submitted from previous session)
-    if (checkSubmitted()) { triggerSubmit(); return }
-
-    // Watch for submission
-    const observer = new MutationObserver(() => {
-      if (checkSubmitted()) triggerSubmit()
-    })
-    observer.observe(document.body, { childList: true, subtree: true })
-    observerRef.current = observer
-
-    pollRef.current = setInterval(() => {
-      if (checkSubmitted()) triggerSubmit()
-    }, 400)
-
-    // Load SDK and create form
-    const createForm = () => {
-      if (!window.hbspt || formCreatedRef.current) return
-      console.log("[v0] Creating HubSpot form")
-      formCreatedRef.current = true
-      window.hbspt.forms.create({
-        region: "na1",
-        portalId: HS_PORTAL_ID,
-        formId: HS_FORM_ID,
-        target: `#${MOUNT_ID}`,
-        onFormSubmit: () => { console.log("[v0] onFormSubmit fired"); triggerSubmit() },
-        onFormSubmitted: () => { console.log("[v0] onFormSubmitted fired"); triggerSubmit() },
-      })
-    }
-
-    if (window.hbspt) {
-      createForm()
-    } else if (!document.getElementById(HS_SCRIPT_ID)) {
-      const script = document.createElement("script")
-      script.id = HS_SCRIPT_ID
-      script.src = HS_SCRIPT_SRC
-      script.onload = () => createForm()
-      document.body.appendChild(script)
-    }
-
+    window.addEventListener("message", handleMessage)
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-      observerRef.current?.disconnect()
+      window.removeEventListener("message", handleMessage)
+      clearInterval(pollId)
     }
   }, [open])
 
@@ -174,8 +125,15 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           </p>
         </div>
 
-        {/* Wrapper where the out-of-tree HubSpot mount node gets appended */}
-        <div ref={wrapperRef} className="min-h-[80px]" />
+        {/* hs-form-frame: HubSpot simple embed, self-contained iframe, zero React conflict */}
+        <div ref={containerRef}>
+          <div
+            className="hs-form-frame"
+            data-region="na1"
+            data-form-id="95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
+            data-portal-id="544893"
+          />
+        </div>
 
         {showButton && (
           <button
