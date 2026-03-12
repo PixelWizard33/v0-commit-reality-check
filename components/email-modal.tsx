@@ -74,6 +74,58 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
     }
   }, [open])
 
+  // Check multiple selectors and text content HubSpot uses across SDK versions
+  const isSubmitted = () => {
+    const mount = document.getElementById(MOUNT_ID)
+    if (!mount) return false
+    const text = mount.innerText.toLowerCase()
+    return !!(
+      mount.querySelector(".submitted-message") ||
+      mount.querySelector(".hs-form__thank-you") ||
+      mount.querySelector("[class*='thank']") ||
+      mount.querySelector("[class*='success']") ||
+      // Check for "thank you" text content (HubSpot's default message)
+      text.includes("thank you") ||
+      text.includes("thanks")
+    )
+  }
+
+  // Start watching for submission and also check immediately
+  useEffect(() => {
+    if (!open) return
+    
+    const triggerSubmit = () => {
+      if (submittedRef.current) return
+      submittedRef.current = true
+      if (pollRef.current) clearInterval(pollRef.current)
+      observerRef.current?.disconnect()
+      setShowButton(true)
+    }
+
+    // Check immediately in case form is already submitted
+    if (isSubmitted()) {
+      triggerSubmit()
+      return
+    }
+
+    // MutationObserver on body to catch any DOM change
+    const observer = new MutationObserver(() => {
+      if (isSubmitted()) triggerSubmit()
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    observerRef.current = observer
+
+    // Polling fallback every 400ms
+    pollRef.current = setInterval(() => {
+      if (isSubmitted()) triggerSubmit()
+    }, 400)
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+      observerRef.current?.disconnect()
+    }
+  }, [open])
+
   // Load SDK and create form once
   useEffect(() => {
     if (!open || formCreatedRef.current) return
@@ -84,41 +136,6 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       if (pollRef.current) clearInterval(pollRef.current)
       observerRef.current?.disconnect()
       setShowButton(true)
-    }
-
-    // Check multiple selectors and text content HubSpot uses across SDK versions
-    const isSubmitted = () => {
-      const mount = document.getElementById(MOUNT_ID)
-      if (!mount) return false
-      const text = mount.innerText.toLowerCase()
-      return !!(
-        mount.querySelector(".submitted-message") ||
-        mount.querySelector(".hs-form__thank-you") ||
-        mount.querySelector("[class*='thank']") ||
-        mount.querySelector("[class*='success']") ||
-        // Check for "thank you" text content (HubSpot's default message)
-        text.includes("thank you") ||
-        text.includes("thanks") ||
-        // Fallback: if the form element is gone and there's content, submission happened
-        (!mount.querySelector("form") && !mount.querySelector("iframe") && mount.innerText.trim().length > 0)
-      )
-    }
-
-    const startWatching = () => {
-      const mountNode = document.getElementById(MOUNT_ID)
-      if (!mountNode) return
-
-      // MutationObserver on body to catch any DOM change
-      const observer = new MutationObserver(() => {
-        if (isSubmitted()) triggerSubmit()
-      })
-      observer.observe(document.body, { childList: true, subtree: true })
-      observerRef.current = observer
-
-      // Polling fallback every 400ms
-      pollRef.current = setInterval(() => {
-        if (isSubmitted()) triggerSubmit()
-      }, 400)
     }
 
     const createForm = () => {
@@ -132,8 +149,6 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
         onFormSubmit: () => triggerSubmit(),
         onFormSubmitted: () => triggerSubmit(),
       })
-      // Start watching after form is injected
-      setTimeout(startWatching, 500)
     }
 
     if (window.hbspt) {
