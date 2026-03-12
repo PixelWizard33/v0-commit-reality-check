@@ -13,28 +13,60 @@ const HS_PORTAL_ID = "544893"
 const HS_FORM_ID = "95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
 const HS_SCRIPT_ID = "hs-forms-sdk"
 const HS_SCRIPT_SRC = "https://js.hsforms.net/forms/embed/v2.js"
-const FORM_DIV_ID = "hs-form-mount"
+const MOUNT_ID = "hs-form-mount"
 
 declare global {
   interface Window {
     hbspt?: {
-      forms: {
-        create: (opts: Record<string, unknown>) => void
-      }
+      forms: { create: (opts: Record<string, unknown>) => void }
     }
   }
 }
 
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
   const [isMounted, setIsMounted] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const formCreatedRef = useRef(false)
   const submittedRef = useRef(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => { setIsMounted(true) }, [])
 
-  // Load the HubSpot forms v2 script and call hbspt.forms.create()
-  // targeting a plain div by ID -- imperative, no auto-discovery conflict.
+  // Create a bare div outside React's tree and move it into the modal wrapper.
+  // HubSpot renders into this node -- React never diffs its children.
+  useEffect(() => {
+    if (!isMounted) return
+
+    // Create the mount node once and keep it alive for the page lifetime
+    if (!document.getElementById(MOUNT_ID)) {
+      const node = document.createElement("div")
+      node.id = MOUNT_ID
+      node.className = "hs-terminal-form"
+      document.body.appendChild(node)
+    }
+
+    return () => {
+      // Do NOT remove on unmount -- HubSpot may still be using it
+    }
+  }, [isMounted])
+
+  // Move the mount node in/out of the modal wrapper when open changes
+  useEffect(() => {
+    if (!isMounted) return
+    const mountNode = document.getElementById(MOUNT_ID)
+    const wrapper = wrapperRef.current
+    if (!mountNode || !wrapper) return
+
+    if (open) {
+      wrapper.appendChild(mountNode)
+    } else {
+      if (mountNode.parentNode === wrapper) {
+        document.body.appendChild(mountNode)
+      }
+    }
+  }, [open, isMounted])
+
+  // Load SDK and call hbspt.forms.create() once
   useEffect(() => {
     if (!open || !isMounted || formCreatedRef.current) return
 
@@ -45,7 +77,7 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
         region: "na1",
         portalId: HS_PORTAL_ID,
         formId: HS_FORM_ID,
-        target: `#${FORM_DIV_ID}`,
+        target: `#${MOUNT_ID}`,
         onFormSubmitted: () => {
           if (submittedRef.current) return
           submittedRef.current = true
@@ -59,46 +91,30 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       return
     }
 
-    // Script not yet loaded -- inject it then wait
     if (!document.getElementById(HS_SCRIPT_ID)) {
       const script = document.createElement("script")
       script.id = HS_SCRIPT_ID
       script.src = HS_SCRIPT_SRC
       script.onload = () => {
-        // Poll for hbspt to be ready after script load
         pollRef.current = setInterval(() => {
           if (window.hbspt) {
-            if (pollRef.current) clearInterval(pollRef.current)
+            clearInterval(pollRef.current!)
             createForm()
           }
         }, 100)
       }
       document.body.appendChild(script)
     } else {
-      // Script tag exists but may still be loading
       pollRef.current = setInterval(() => {
         if (window.hbspt) {
-          if (pollRef.current) clearInterval(pollRef.current)
+          clearInterval(pollRef.current!)
           createForm()
         }
       }, 100)
     }
 
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [open, isMounted, onSubmit])
-
-  // Reset on close so re-opening works
-  useEffect(() => {
-    if (!open) {
-      submittedRef.current = false
-      formCreatedRef.current = false
-      // Clear the mount div so HubSpot can re-render into it next open
-      const el = document.getElementById(FORM_DIV_ID)
-      if (el) el.innerHTML = ""
-    }
-  }, [open])
 
   return (
     <div
@@ -131,11 +147,9 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           </p>
         </div>
 
-        {/* Plain div targeted by hbspt.forms.create() -- React never renders
-            children here so there is no hydration conflict with HubSpot's SDK */}
-        {isMounted && (
-          <div id={FORM_DIV_ID} className="hs-terminal-form min-h-[80px]" />
-        )}
+        {/* wrapperRef receives the HubSpot mount node via DOM appendChild.
+            React never renders children here -- no hydration conflict. */}
+        <div ref={wrapperRef} className="min-h-[80px]" />
 
         <p className="mt-3 text-center text-[10px] tracking-wider text-muted-foreground">
           {"NO SPAM. JUST COMMITS AND CONSEQUENCES."}
