@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type MutableRefObject } from "react"
+import { useEffect, useRef, useState } from "react"
 import { X } from "lucide-react"
 
 interface EmailModalProps {
@@ -24,40 +24,40 @@ declare global {
 }
 
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
-  const [isMounted, setIsMounted] = useState(false)
   const [showButton, setShowButton] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const formCreatedRef = useRef(false)
   const submittedRef = useRef(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const observerRef = useRef<MutationObserver | null>(null)
 
-  // Reset button state when modal closes
+  // Swallow the non-fatal HubSpot internal React errors so they don't
+  // interrupt the page. The errors come from HubSpot's own bundled React
+  // instance conflicting with Next.js -- the form still works correctly.
   useEffect(() => {
-    if (!open) setShowButton(false)
-  }, [open])
-
-
-  // Create a bare div outside React's tree and move it into the modal wrapper.
-  // HubSpot renders into this node -- React never diffs its children.
-  useEffect(() => {
-    if (!isMounted) return
-
-    // Create the mount node once and keep it alive for the page lifetime
-    if (!document.getElementById(MOUNT_ID)) {
-      const node = document.createElement("div")
-      node.id = MOUNT_ID
-      node.className = "hs-terminal-form"
-      document.body.appendChild(node)
+    const handler = (e: ErrorEvent) => {
+      if (e.filename?.includes("hsappstatic") || e.filename?.includes("hsforms")) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
     }
+    window.addEventListener("error", handler)
+    return () => window.removeEventListener("error", handler)
+  }, [])
 
-    return () => {
-      // Do NOT remove on unmount -- HubSpot may still be using it
-    }
-  }, [isMounted])
-
-  // Move the mount node in/out of the modal wrapper when open changes
+  // On first render (client only), create the persistent HubSpot mount node
+  // directly on document.body -- completely outside React's managed tree.
   useEffect(() => {
-    if (!isMounted) return
+    if (document.getElementById(MOUNT_ID)) return
+    const node = document.createElement("div")
+    node.id = MOUNT_ID
+    node.className = "hs-terminal-form"
+    document.body.appendChild(node)
+  }, [])
+
+  // Move the mount node into the visible modal wrapper when open,
+  // park it back on body (hidden) when closed.
+  useEffect(() => {
     const mountNode = document.getElementById(MOUNT_ID)
     const wrapper = wrapperRef.current
     if (!mountNode || !wrapper) return
@@ -68,47 +68,44 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       if (mountNode.parentNode === wrapper) {
         document.body.appendChild(mountNode)
       }
+      setShowButton(false)
+      submittedRef.current = false
+      observerRef.current?.disconnect()
     }
-  }, [open, isMounted])
+  }, [open])
 
-  // Load SDK and call hbspt.forms.create() once
+  // Load SDK and create form once
   useEffect(() => {
-    if (!open || !isMounted || formCreatedRef.current) return
+    if (!open || formCreatedRef.current) return
 
     const triggerSubmit = () => {
       if (submittedRef.current) return
       submittedRef.current = true
       if (pollRef.current) clearInterval(pollRef.current)
-      // Show the "View Your Roast" button instead of auto-closing
+      observerRef.current?.disconnect()
       setShowButton(true)
     }
 
-    // MutationObserver on the mount node -- since hbspt renders HTML directly
-    // into our div, we can watch for .submitted-message appearing
-    const mountNode = document.getElementById(MOUNT_ID)
-    if (mountNode) {
+    const startObserver = () => {
+      const mountNode = document.getElementById(MOUNT_ID)
+      if (!mountNode) return
       const observer = new MutationObserver(() => {
-        if (mountNode.querySelector(".submitted-message")) {
-          observer.disconnect()
-          triggerSubmit()
-        }
+        if (mountNode.querySelector(".submitted-message")) triggerSubmit()
       })
       observer.observe(mountNode, { childList: true, subtree: true })
-      // Store cleanup on the ref so we can disconnect on unmount
-      ;(submittedRef as MutableRefObject<unknown>).__observer = observer
+      observerRef.current = observer
     }
 
     const createForm = () => {
       if (!window.hbspt || formCreatedRef.current) return
       formCreatedRef.current = true
+      startObserver()
       window.hbspt.forms.create({
         region: "na1",
         portalId: HS_PORTAL_ID,
         formId: HS_FORM_ID,
         target: `#${MOUNT_ID}`,
-        // onFormSubmit fires before redirect (v2 API)
         onFormSubmit: () => triggerSubmit(),
-        // onFormSubmitted fires after (some versions)
         onFormSubmitted: () => triggerSubmit(),
       })
     }
@@ -142,11 +139,8 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const obs = (submittedRef as any).__observer as MutationObserver | undefined
-      obs?.disconnect()
     }
-  }, [open, isMounted, onSubmit])
+  }, [open])
 
   return (
     <div
@@ -179,8 +173,7 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           </p>
         </div>
 
-        {/* wrapperRef receives the HubSpot mount node via DOM appendChild.
-            React never renders children here -- no hydration conflict. */}
+        {/* Wrapper where the out-of-tree HubSpot mount node gets appended */}
         <div ref={wrapperRef} className="min-h-[80px]" />
 
         {showButton && (
