@@ -31,9 +31,7 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const observerRef = useRef<MutationObserver | null>(null)
 
-  // Swallow the non-fatal HubSpot internal React errors so they don't
-  // interrupt the page. The errors come from HubSpot's own bundled React
-  // instance conflicting with Next.js -- the form still works correctly.
+  // Swallow non-fatal HubSpot internal React errors
   useEffect(() => {
     const handler = (e: ErrorEvent) => {
       if (e.filename?.includes("hsappstatic") || e.filename?.includes("hsforms")) {
@@ -45,8 +43,7 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
     return () => window.removeEventListener("error", handler)
   }, [])
 
-  // On first render (client only), create the persistent HubSpot mount node
-  // directly on document.body -- completely outside React's managed tree.
+  // Create the persistent HubSpot mount node on body (outside React tree) once
   useEffect(() => {
     if (document.getElementById(MOUNT_ID)) return
     const node = document.createElement("div")
@@ -55,131 +52,94 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
     document.body.appendChild(node)
   }, [])
 
-  // Move the mount node into the visible modal wrapper when open,
-  // park it back on body (hidden) when closed.
+  // Single effect that handles: move node, load SDK, watch for submission
   useEffect(() => {
     const mountNode = document.getElementById(MOUNT_ID)
     const wrapper = wrapperRef.current
-    if (!mountNode || !wrapper) return
 
-    if (open) {
-      wrapper.appendChild(mountNode)
-    } else {
-      if (mountNode.parentNode === wrapper) {
+    if (!open) {
+      // Park the node back on body when closed
+      if (mountNode && wrapper && mountNode.parentNode === wrapper) {
         document.body.appendChild(mountNode)
       }
       setShowButton(false)
       submittedRef.current = false
+      if (pollRef.current) clearInterval(pollRef.current)
       observerRef.current?.disconnect()
+      return
     }
-  }, [open])
 
-  // Check multiple selectors and text content HubSpot uses across SDK versions
-  const isSubmitted = () => {
-    const mount = document.getElementById(MOUNT_ID)
-    if (!mount) return false
-    const text = mount.innerText.toLowerCase()
-    return !!(
-      mount.querySelector(".submitted-message") ||
-      mount.querySelector(".hs-form__thank-you") ||
-      mount.querySelector("[class*='thank']") ||
-      mount.querySelector("[class*='success']") ||
-      // Check for "thank you" text content (HubSpot's default message)
-      text.includes("thank you") ||
-      text.includes("thanks")
-    )
-  }
+    // Move the mount node into the visible wrapper
+    if (mountNode && wrapper && mountNode.parentNode !== wrapper) {
+      wrapper.appendChild(mountNode)
+    }
 
-  // Start watching for submission and also check immediately
-  useEffect(() => {
-    if (!open) return
-    
     const triggerSubmit = () => {
       if (submittedRef.current) return
+      console.log("[v0] HubSpot form submitted -- showing button")
       submittedRef.current = true
       if (pollRef.current) clearInterval(pollRef.current)
       observerRef.current?.disconnect()
       setShowButton(true)
     }
 
-    // Check immediately in case form is already submitted
-    if (isSubmitted()) {
-      triggerSubmit()
-      return
+    const checkSubmitted = () => {
+      const mount = document.getElementById(MOUNT_ID)
+      if (!mount) return false
+      const text = mount.innerText.toLowerCase()
+      const result = !!(
+        mount.querySelector(".submitted-message") ||
+        mount.querySelector(".hs-form__thank-you") ||
+        mount.querySelector("[class*='thank']") ||
+        text.includes("thank you") ||
+        text.includes("thanks")
+      )
+      if (result) console.log("[v0] Submission detected via DOM check")
+      return result
     }
 
-    // MutationObserver on body to catch any DOM change
+    // Check immediately (already submitted from previous session)
+    if (checkSubmitted()) { triggerSubmit(); return }
+
+    // Watch for submission
     const observer = new MutationObserver(() => {
-      if (isSubmitted()) triggerSubmit()
+      if (checkSubmitted()) triggerSubmit()
     })
     observer.observe(document.body, { childList: true, subtree: true })
     observerRef.current = observer
 
-    // Polling fallback every 400ms
     pollRef.current = setInterval(() => {
-      if (isSubmitted()) triggerSubmit()
+      if (checkSubmitted()) triggerSubmit()
     }, 400)
 
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-      observerRef.current?.disconnect()
-    }
-  }, [open])
-
-  // Load SDK and create form once
-  useEffect(() => {
-    if (!open || formCreatedRef.current) return
-
-    const triggerSubmit = () => {
-      if (submittedRef.current) return
-      submittedRef.current = true
-      if (pollRef.current) clearInterval(pollRef.current)
-      observerRef.current?.disconnect()
-      setShowButton(true)
-    }
-
+    // Load SDK and create form
     const createForm = () => {
       if (!window.hbspt || formCreatedRef.current) return
+      console.log("[v0] Creating HubSpot form")
       formCreatedRef.current = true
       window.hbspt.forms.create({
         region: "na1",
         portalId: HS_PORTAL_ID,
         formId: HS_FORM_ID,
         target: `#${MOUNT_ID}`,
-        onFormSubmit: () => triggerSubmit(),
-        onFormSubmitted: () => triggerSubmit(),
+        onFormSubmit: () => { console.log("[v0] onFormSubmit fired"); triggerSubmit() },
+        onFormSubmitted: () => { console.log("[v0] onFormSubmitted fired"); triggerSubmit() },
       })
     }
 
     if (window.hbspt) {
       createForm()
-      return
-    }
-
-    if (!document.getElementById(HS_SCRIPT_ID)) {
+    } else if (!document.getElementById(HS_SCRIPT_ID)) {
       const script = document.createElement("script")
       script.id = HS_SCRIPT_ID
       script.src = HS_SCRIPT_SRC
-      script.onload = () => {
-        pollRef.current = setInterval(() => {
-          if (window.hbspt) {
-            clearInterval(pollRef.current!)
-            createForm()
-          }
-        }, 100)
-      }
+      script.onload = () => createForm()
       document.body.appendChild(script)
-    } else {
-      pollRef.current = setInterval(() => {
-        if (window.hbspt) {
-          clearInterval(pollRef.current!)
-          createForm()
-        }
-      }, 100)
     }
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
+      observerRef.current?.disconnect()
     }
   }, [open])
 
