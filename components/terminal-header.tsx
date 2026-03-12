@@ -13,7 +13,7 @@ export function TerminalHeader({ muted, onMuteToggle }: TerminalHeaderProps) {
     <header className="flex items-center justify-between border-b border-border px-6 py-4">
       <div>
         <h1 className="text-lg font-bold tracking-widest text-neon-green neon-glow-sm md:text-2xl">
-          {"Let GitKraken Roast Your Commit"}
+          {"GIT ROASTED BY GITKRAKEN"}
         </h1>
         <p className="mt-1 text-xs tracking-wider text-neon-cyan md:text-sm">
           {"Roast it. Translate it. Fix it."}
