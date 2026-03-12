@@ -18,13 +18,23 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
   const scriptInjectedRef = useRef(false)
   const observerRef = useRef<MutationObserver | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const hsSlotRef = useRef<HTMLDivElement>(null)
 
-  // Only render the HubSpot div after hydration to avoid React SSR conflicts
+  useEffect(() => { setIsMounted(true) }, [])
+
+  // Stamp HubSpot attributes onto the slot div imperatively after mount.
+  // React never re-renders this node (dangerouslySetInnerHTML={{}}) so
+  // HubSpot's own React can hydrate it without conflicting with Next.js.
   useEffect(() => {
-    setIsMounted(true)
-  }, [])
+    if (!isMounted || !hsSlotRef.current) return
+    const el = hsSlotRef.current
+    el.className = "hs-form-html hs-terminal-form"
+    el.setAttribute("data-region", "na1")
+    el.setAttribute("data-form-id", "95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab")
+    el.setAttribute("data-portal-id", "544893")
+  }, [isMounted])
 
-  // Inject the HubSpot developer script once on first open, after mount
+  // Inject the HubSpot developer script once on first open
   useEffect(() => {
     if (!open || !isMounted || scriptInjectedRef.current) return
     if (document.getElementById(HS_SCRIPT_ID)) {
@@ -34,12 +44,11 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
     const script = document.createElement("script")
     script.src = HS_SCRIPT_SRC
     script.id = HS_SCRIPT_ID
-    // Not deferred -- we need it to run immediately so it finds the div
     document.body.appendChild(script)
     scriptInjectedRef.current = true
   }, [open, isMounted])
 
-  // Detect submission via MutationObserver + polling + postMessage
+  // Detect submission: MutationObserver + polling + postMessage
   useEffect(() => {
     if (!open || !isMounted) {
       submittedRef.current = false
@@ -63,7 +72,6 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
     const observer = new MutationObserver(checkForSuccess)
     observer.observe(document.body, { childList: true, subtree: true })
     observerRef.current = observer
-
     pollRef.current = setInterval(checkForSuccess, 300)
 
     const handleMessage = (e: MessageEvent) => {
@@ -114,16 +122,17 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           </p>
         </div>
 
-        {/* Only render after mount -- keeps this div out of SSR entirely,
-            preventing HubSpot's bundled React from colliding with Next.js hydration */}
-        {isMounted && (
-          <div
-            className="hs-form-html hs-terminal-form"
-            data-region="na1"
-            data-form-id="95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
-            data-portal-id="544893"
-          />
-        )}
+        {/*
+          dangerouslySetInnerHTML={{__html: ""}} tells React "own this node
+          but never diff its children" -- HubSpot's React can safely render
+          inside it without triggering hydration conflict errors #418/#422.
+          Attributes are set imperatively via useEffect above.
+        */}
+        <div
+          ref={hsSlotRef}
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{ __html: "" }}
+        />
 
         <p className="mt-4 text-center text-[10px] tracking-wider text-muted-foreground">
           {"NO SPAM. JUST COMMITS AND CONSEQUENCES."}
