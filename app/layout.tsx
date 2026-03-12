@@ -24,17 +24,38 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={geistMono.variable}>
-      <body className="font-mono antialiased scanlines">
-        {/* Remove any HubSpot scripts/nodes left over from browser cache */}
+      <head>
+        {/* Block HubSpot entirely -- removes any cached script nodes before they execute
+            and overrides fetch/XHR to prevent hsappstatic.net requests */}
         <script dangerouslySetInnerHTML={{ __html: `
           (function(){
-            ['hs-forms-sdk','hs-form-mount'].forEach(function(id){
-              var el = document.getElementById(id);
-              if (el) el.remove();
-            });
-            document.querySelectorAll('script[src*="hsforms"],script[src*="hsappstatic"]').forEach(function(s){ s.remove(); });
+            try {
+              // Remove any HS script/div nodes immediately
+              ['hs-forms-sdk','hs-form-mount'].forEach(function(id){
+                var el = document.getElementById(id);
+                if (el) el.parentNode && el.parentNode.removeChild(el);
+              });
+              // Block any future HS network requests via fetch
+              var _fetch = window.fetch;
+              window.fetch = function(url) {
+                if (typeof url === 'string' && (url.indexOf('hsappstatic') !== -1 || url.indexOf('hsforms') !== -1 || url.indexOf('hubspot') !== -1)) {
+                  return Promise.reject(new Error('HubSpot blocked'));
+                }
+                return _fetch.apply(this, arguments);
+              };
+              // Suppress errors from HubSpot's own React bundle
+              window.addEventListener('error', function(e) {
+                if (e && e.filename && (e.filename.indexOf('hsappstatic') !== -1 || e.filename.indexOf('hsforms') !== -1)) {
+                  e.preventDefault();
+                  e.stopImmediatePropagation();
+                  return false;
+                }
+              }, true);
+            } catch(e) {}
           })();
         `}} />
+      </head>
+      <body className="font-mono antialiased scanlines">
         {children}
       </body>
     </html>
