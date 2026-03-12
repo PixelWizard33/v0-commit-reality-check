@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { X } from "lucide-react"
 
 interface EmailModalProps {
@@ -13,15 +13,20 @@ const HS_SCRIPT_SRC = "https://js.hsforms.net/forms/embed/developer/544893.js"
 const HS_SCRIPT_ID = "hs-forms-sdk"
 
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
+  const [isMounted, setIsMounted] = useState(false)
   const submittedRef = useRef(false)
   const scriptInjectedRef = useRef(false)
-  const formContainerRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<MutationObserver | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Inject the HubSpot script once on first open.
-  // The div is always mounted so the SDK finds it immediately.
+  // Only render the HubSpot div after hydration to avoid React SSR conflicts
   useEffect(() => {
-    if (!open || scriptInjectedRef.current) return
+    setIsMounted(true)
+  }, [])
+
+  // Inject the HubSpot developer script once on first open, after mount
+  useEffect(() => {
+    if (!open || !isMounted || scriptInjectedRef.current) return
     if (document.getElementById(HS_SCRIPT_ID)) {
       scriptInjectedRef.current = true
       return
@@ -29,18 +34,14 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
     const script = document.createElement("script")
     script.src = HS_SCRIPT_SRC
     script.id = HS_SCRIPT_ID
-    script.defer = true
+    // Not deferred -- we need it to run immediately so it finds the div
     document.body.appendChild(script)
     scriptInjectedRef.current = true
-  }, [open])
+  }, [open, isMounted])
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  // Detect form submission via MutationObserver + polling.
-  // The developer embed (hs-form-html) injects HTML directly -- no iframe --
-  // so we CAN observe .submitted-message appearing in the DOM.
+  // Detect submission via MutationObserver + polling + postMessage
   useEffect(() => {
-    if (!open) {
+    if (!open || !isMounted) {
       submittedRef.current = false
       observerRef.current?.disconnect()
       if (pollRef.current) clearInterval(pollRef.current)
@@ -52,7 +53,6 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       submittedRef.current = true
       observerRef.current?.disconnect()
       if (pollRef.current) clearInterval(pollRef.current)
-      // Show "Thank you" briefly then close
       setTimeout(() => onSubmit(""), 1200)
     }
 
@@ -60,15 +60,12 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       if (document.querySelector(".submitted-message")) triggerSubmit()
     }
 
-    // MutationObserver on body -- catches the DOM insertion immediately
     const observer = new MutationObserver(checkForSuccess)
     observer.observe(document.body, { childList: true, subtree: true })
     observerRef.current = observer
 
-    // Polling fallback every 300ms in case observer fires before DOM settles
     pollRef.current = setInterval(checkForSuccess, 300)
 
-    // postMessage fallback
     const handleMessage = (e: MessageEvent) => {
       try {
         const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data
@@ -84,7 +81,7 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       if (pollRef.current) clearInterval(pollRef.current)
       window.removeEventListener("message", handleMessage)
     }
-  }, [open, onSubmit])
+  }, [open, isMounted, onSubmit])
 
   return (
     <div
@@ -96,10 +93,7 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       aria-label="Email capture"
       aria-hidden={!open}
     >
-      <div
-        ref={formContainerRef}
-        className="relative mx-4 w-full max-w-md border border-neon-green/40 bg-terminal-bg p-6 glow-border"
-      >
+      <div className="relative mx-4 w-full max-w-md border border-neon-green/40 bg-terminal-bg p-6 glow-border">
         <button
           onClick={onClose}
           className="absolute right-3 top-3 text-muted-foreground transition-colors hover:text-neon-green"
@@ -120,14 +114,16 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           </p>
         </div>
 
-        {/* HubSpot developer embed -- renders HTML directly (not an iframe),
-            so MutationObserver can detect .submitted-message on submission */}
-        <div
-          className="hs-form-html hs-terminal-form"
-          data-region="na1"
-          data-form-id="95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
-          data-portal-id="544893"
-        />
+        {/* Only render after mount -- keeps this div out of SSR entirely,
+            preventing HubSpot's bundled React from colliding with Next.js hydration */}
+        {isMounted && (
+          <div
+            className="hs-form-html hs-terminal-form"
+            data-region="na1"
+            data-form-id="95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
+            data-portal-id="544893"
+          />
+        )}
 
         <p className="mt-4 text-center text-[10px] tracking-wider text-muted-foreground">
           {"NO SPAM. JUST COMMITS AND CONSEQUENCES."}
