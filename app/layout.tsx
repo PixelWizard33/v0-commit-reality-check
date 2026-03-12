@@ -25,25 +25,57 @@ export default function RootLayout({
   return (
     <html lang="en" className={geistMono.variable}>
       <head>
-        {/* Block HubSpot entirely -- removes any cached script nodes before they execute
-            and overrides fetch/XHR to prevent hsappstatic.net requests */}
+        {/* HubSpot's SDK spawns a MessagePort worker that persists across page loads.
+            Intercept MessagePort.onmessage and the native postMessage to drop all
+            HS traffic before it reaches their bundled React and throws #418/#422. */}
         <script dangerouslySetInnerHTML={{ __html: `
           (function(){
             try {
-              // Remove any HS script/div nodes immediately
-              ['hs-forms-sdk','hs-form-mount'].forEach(function(id){
-                var el = document.getElementById(id);
-                if (el) el.parentNode && el.parentNode.removeChild(el);
-              });
-              // Block any future HS network requests via fetch
+              // Patch MessagePort so any HubSpot worker messages are silently dropped
+              var _addEL = EventTarget.prototype.addEventListener;
+              EventTarget.prototype.addEventListener = function(type, fn, opts) {
+                if (type === 'message' && fn && fn.toString().indexOf('hsappstatic') !== -1) return;
+                return _addEL.call(this, type, fn, opts);
+              };
+
+              // Patch MessagePort.prototype.onmessage setter
+              var mp = MessagePort.prototype;
+              var _omDesc = Object.getOwnPropertyDescriptor(mp, 'onmessage');
+              if (_omDesc) {
+                Object.defineProperty(mp, 'onmessage', {
+                  set: function(fn) {
+                    _omDesc.set.call(this, function(e) {
+                      try {
+                        var d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+                        if (d && d.__type && String(d.__type).indexOf('hs') !== -1) return;
+                      } catch(x) {}
+                      fn && fn(e);
+                    });
+                  },
+                  get: _omDesc.get,
+                  configurable: true,
+                });
+              }
+
+              // Block HS script execution entirely at XMLHttpRequest level
+              var _xhrOpen = XMLHttpRequest.prototype.open;
+              XMLHttpRequest.prototype.open = function(m, url) {
+                if (typeof url === 'string' && (url.indexOf('hsappstatic') !== -1 || url.indexOf('hsforms') !== -1)) {
+                  url = 'about:blank';
+                }
+                return _xhrOpen.apply(this, arguments);
+              };
+
+              // Block HS fetch requests
               var _fetch = window.fetch;
               window.fetch = function(url) {
                 if (typeof url === 'string' && (url.indexOf('hsappstatic') !== -1 || url.indexOf('hsforms') !== -1 || url.indexOf('hubspot') !== -1)) {
-                  return Promise.reject(new Error('HubSpot blocked'));
+                  return Promise.reject(new Error('blocked'));
                 }
                 return _fetch.apply(this, arguments);
               };
-              // Suppress errors from HubSpot's own React bundle
+
+              // Suppress thrown errors from HS React bundle
               window.addEventListener('error', function(e) {
                 if (e && e.filename && (e.filename.indexOf('hsappstatic') !== -1 || e.filename.indexOf('hsforms') !== -1)) {
                   e.preventDefault();
@@ -51,7 +83,14 @@ export default function RootLayout({
                   return false;
                 }
               }, true);
-            } catch(e) {}
+
+              // Remove any HS DOM nodes left from previous session
+              ['hs-forms-sdk','hs-form-mount'].forEach(function(id){
+                var el = document.getElementById(id);
+                if (el && el.parentNode) el.parentNode.removeChild(el);
+              });
+
+            } catch(err) { /* silently ignore setup errors */ }
           })();
         `}} />
       </head>
