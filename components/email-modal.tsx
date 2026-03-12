@@ -9,87 +9,55 @@ interface EmailModalProps {
   onClose: () => void
 }
 
-const HS_SCRIPT_SRC = "https://js.hsforms.net/forms/embed/developer/544893.js"
-const HS_SCRIPT_ID = "hs-forms-sdk"
+// HubSpot embed iframe URL -- the hs-form-frame embed renders as an iframe
+// with this src. We load it directly so React never touches HubSpot's DOM.
+const HS_IFRAME_SRC =
+  "https://share-eu1.hsforms.com/1" +
+  "95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab" +
+  "?embed=true&portalId=544893"
 
 export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
   const [isMounted, setIsMounted] = useState(false)
   const submittedRef = useRef(false)
-  const scriptInjectedRef = useRef(false)
-  const observerRef = useRef<MutationObserver | null>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const hsSlotRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { setIsMounted(true) }, [])
 
-  // Stamp HubSpot attributes onto the slot div imperatively after mount.
-  // React never re-renders this node (dangerouslySetInnerHTML={{}}) so
-  // HubSpot's own React can hydrate it without conflicting with Next.js.
   useEffect(() => {
-    if (!isMounted || !hsSlotRef.current) return
-    const el = hsSlotRef.current
-    el.className = "hs-form-html hs-terminal-form"
-    el.setAttribute("data-region", "na1")
-    el.setAttribute("data-form-id", "95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab")
-    el.setAttribute("data-portal-id", "544893")
-  }, [isMounted])
-
-  // Inject the HubSpot developer script once on first open
-  useEffect(() => {
-    if (!open || !isMounted || scriptInjectedRef.current) return
-    if (document.getElementById(HS_SCRIPT_ID)) {
-      scriptInjectedRef.current = true
-      return
-    }
-    const script = document.createElement("script")
-    script.src = HS_SCRIPT_SRC
-    script.id = HS_SCRIPT_ID
-    document.body.appendChild(script)
-    scriptInjectedRef.current = true
-  }, [open, isMounted])
-
-  // Detect submission: MutationObserver + polling + postMessage
-  useEffect(() => {
-    if (!open || !isMounted) {
+    if (!open) {
       submittedRef.current = false
-      observerRef.current?.disconnect()
-      if (pollRef.current) clearInterval(pollRef.current)
       return
     }
 
     const triggerSubmit = () => {
       if (submittedRef.current) return
       submittedRef.current = true
-      observerRef.current?.disconnect()
-      if (pollRef.current) clearInterval(pollRef.current)
-      setTimeout(() => onSubmit(""), 1200)
+      setTimeout(() => onSubmit(""), 1500)
     }
-
-    const checkForSuccess = () => {
-      if (document.querySelector(".submitted-message")) triggerSubmit()
-    }
-
-    const observer = new MutationObserver(checkForSuccess)
-    observer.observe(document.body, { childList: true, subtree: true })
-    observerRef.current = observer
-    pollRef.current = setInterval(checkForSuccess, 300)
 
     const handleMessage = (e: MessageEvent) => {
       try {
-        const data = typeof e.data === "string" ? JSON.parse(e.data) : e.data
-        if (data?.type === "hsFormCallback" && data?.eventName === "onFormSubmitted") {
-          triggerSubmit()
+        const raw = typeof e.data === "string" ? JSON.parse(e.data) : e.data
+        // HubSpot sends multiple event shapes depending on form type
+        if (
+          raw?.type === "hsFormCallback" ||
+          raw?.eventName === "onFormSubmitted" ||
+          raw?.event === "onFormSubmitted" ||
+          raw?.type === "form-submitted"
+        ) {
+          if (
+            !raw.eventName ||
+            raw.eventName === "onFormSubmitted" ||
+            raw.type === "form-submitted"
+          ) {
+            triggerSubmit()
+          }
         }
       } catch { /* not a HubSpot message */ }
     }
-    window.addEventListener("message", handleMessage)
 
-    return () => {
-      observer.disconnect()
-      if (pollRef.current) clearInterval(pollRef.current)
-      window.removeEventListener("message", handleMessage)
-    }
-  }, [open, isMounted, onSubmit])
+    window.addEventListener("message", handleMessage)
+    return () => window.removeEventListener("message", handleMessage)
+  }, [open, onSubmit])
 
   return (
     <div
@@ -110,7 +78,7 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           <X className="h-4 w-4" />
         </button>
 
-        <div className="mb-6 flex flex-col gap-2">
+        <div className="mb-4 flex flex-col gap-2">
           <div className="text-xs tracking-wider text-muted-foreground">
             {"// AUTHENTICATION REQUIRED"}
           </div>
@@ -122,19 +90,19 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
           </p>
         </div>
 
-        {/*
-          dangerouslySetInnerHTML={{__html: ""}} tells React "own this node
-          but never diff its children" -- HubSpot's React can safely render
-          inside it without triggering hydration conflict errors #418/#422.
-          Attributes are set imperatively via useEffect above.
-        */}
-        <div
-          ref={hsSlotRef}
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: "" }}
-        />
+        {/* Plain iframe -- completely outside React's reconciler.
+            HubSpot renders inside its own document, zero DOM conflict. */}
+        {isMounted && (
+          <iframe
+            src={HS_IFRAME_SRC}
+            title="Email signup"
+            className="w-full border-0"
+            style={{ height: 180, background: "transparent" }}
+            sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
+          />
+        )}
 
-        <p className="mt-4 text-center text-[10px] tracking-wider text-muted-foreground">
+        <p className="mt-3 text-center text-[10px] tracking-wider text-muted-foreground">
           {"NO SPAM. JUST COMMITS AND CONSEQUENCES."}
         </p>
       </div>
