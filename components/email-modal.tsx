@@ -86,16 +86,20 @@ export function EmailModal({ open, onSubmit, onClose }: EmailModalProps) {
       setShowButton(true)
     }
 
-    // Check multiple selectors HubSpot uses across SDK versions
+    // Check multiple selectors and text content HubSpot uses across SDK versions
     const isSubmitted = () => {
       const mount = document.getElementById(MOUNT_ID)
       if (!mount) return false
+      const text = mount.innerText.toLowerCase()
       return !!(
         mount.querySelector(".submitted-message") ||
         mount.querySelector(".hs-form__thank-you") ||
         mount.querySelector("[class*='thank']") ||
         mount.querySelector("[class*='success']") ||
-        // Fallback: if the form element is gone, submission happened
+        // Check for "thank you" text content (HubSpot's default message)
+        text.includes("thank you") ||
+        text.includes("thanks") ||
+        // Fallback: if the form element is gone and there's content, submission happened
         (!mount.querySelector("form") && !mount.querySelector("iframe") && mount.innerText.trim().length > 0)
       )
     }
