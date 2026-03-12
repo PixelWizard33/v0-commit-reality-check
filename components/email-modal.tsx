@@ -12,7 +12,7 @@ interface EmailModalProps {
 const HS_PORTAL_ID = "544893"
 const HS_FORM_ID = "95a33a0a-1c17-40e2-a0d4-9f70ecaeb5ab"
 const HS_SCRIPT_ID = "hs-forms-sdk"
-const HS_SCRIPT_SRC = "https://js.hsforms.net/forms/embed/v2.js"
+const HS_SCRIPT_SRC = "https://js.hsforms.net/forms/v2.js"
 const MOUNT_ID = "hs-form-mount"
 
 declare global {
