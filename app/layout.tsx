@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import "./globals.css";
 
@@ -26,7 +27,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={geistMono.variable}>
       <head></head>
-      <body className="font-mono antialiased scanlines">{children}</body>
+      <body className="font-mono antialiased scanlines">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
