@@ -88,6 +88,7 @@ export default function Home() {
         mode_intensity: intensity,
         helpful_mode_enabled: helpfulMode,
         session_id: sessionIdRef.current,
+        commits: validCommits,
       })
     }
   }, [commits, intensity, helpfulMode])
