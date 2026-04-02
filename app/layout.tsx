@@ -1,6 +1,7 @@
-import type { Metadata, Viewport } from "next";
-import { Geist_Mono } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
+import type { Metadata, Viewport } from 'next'
+import { Geist_Mono } from 'next/font/google'
+import Script from 'next/script'
+import { PostHogInitializer } from '@/components/posthog-initializer'
 
 import "./globals.css";
 
@@ -28,6 +29,13 @@ export default function RootLayout({
     <html lang="en" className={geistMono.variable}>
       <head></head>
       <body className="font-mono antialiased scanlines">
+        {/* PostHog Analytics - Script loads library */}
+        <Script
+          src="https://cdn.jsdelivr.net/npm/posthog-js@1.146.0/dist/array.full.js"
+          strategy="afterInteractive"
+        />
+        {/* PostHog Initializer - Client component that initializes after script loads */}
+        <PostHogInitializer />
         {children}
         <Analytics />
       </body>
