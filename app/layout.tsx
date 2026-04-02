@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist_Mono } from 'next/font/google'
+import Script from 'next/script'
 
 import './globals.css'
 
@@ -95,6 +96,19 @@ export default function RootLayout({
         `}} />
       </head>
       <body className="font-mono antialiased scanlines">
+        {/* PostHog Analytics */}
+        <Script
+          src="https://cdn.jsdelivr.net/npm/posthog-js@1.146.0/dist/array.full.js"
+          strategy="afterInteractive"
+          onLoad={() => {
+            if (typeof window !== 'undefined' && window.posthog) {
+              window.posthog.init('phc_qYaMZaXZnrZbNL2J9c5sjyrBsVi8zcdk9wf9R9D74UfG', {
+                api_host: 'https://us.posthog.com',
+                person_profiles: 'always',
+              })
+            }
+          }}
+        />
         {children}
       </body>
     </html>

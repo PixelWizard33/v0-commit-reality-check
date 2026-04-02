@@ -35,9 +35,15 @@ export default function Home() {
   const [muted, setMuted] = useState(false)
   const [soundPlayed, setSoundPlayed] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const sessionIdRef = useRef<string>("")
 
-  // Initialize audio element once
+  // Initialize session ID and audio element once
   useEffect(() => {
+    // Generate unique session ID
+    if (!sessionIdRef.current) {
+      sessionIdRef.current = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    }
+
     const audio = new Audio("/sounds/commit-analysis.mp3")
     audio.volume = 0.25
     audioRef.current = audio
@@ -72,7 +78,19 @@ export default function Home() {
     // Pre-compute analysis so it's ready when loader finishes
     const analysis = generateAnalysis(validCommits, intensity)
     setResult(analysis)
-  }, [commits, intensity])
+
+    // Track roast_generated event in PostHog
+    if (typeof window !== 'undefined' && window.posthog) {
+      window.posthog.capture('roast_generated', {
+        roasts_count: validCommits.length,
+        chaos_score: analysis.chaosScore,
+        archetype: analysis.archetype,
+        mode_intensity: intensity,
+        helpful_mode_enabled: helpfulMode,
+        session_id: sessionIdRef.current,
+      })
+    }
+  }, [commits, intensity, helpfulMode])
 
   // Called by LoadingSequence when progress bar completes
   const handleLoadComplete = useCallback(() => {
