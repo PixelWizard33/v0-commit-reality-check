@@ -37,7 +37,6 @@ export default function RootLayout({
         {/* PostHog Initializer - Client component that initializes after script loads */}
         <PostHogInitializer />
         {children}
-        <Analytics />
       </body>
     </html>
   );

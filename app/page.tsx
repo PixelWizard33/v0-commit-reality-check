@@ -81,6 +81,10 @@ export default function Home() {
 
     // Track roast_generated event in PostHog
     if (typeof window !== 'undefined' && window.posthog) {
+      console.log("[v0] Capturing roast_generated event", { 
+        roasts_count: validCommits.length, 
+        chaos_score: analysis.chaosScore 
+      })
       window.posthog.capture('roast_generated', {
         roasts_count: validCommits.length,
         chaos_score: analysis.chaosScore,
@@ -90,6 +94,8 @@ export default function Home() {
         session_id: sessionIdRef.current,
         commits: validCommits,
       })
+    } else {
+      console.log("[v0] PostHog not available for event tracking")
     }
   }, [commits, intensity, helpfulMode])
 
