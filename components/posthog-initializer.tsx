@@ -8,7 +8,7 @@ export function PostHogInitializer() {
     if (typeof window !== 'undefined' && window.posthog) {
       console.log("[v0] PostHog library loaded, initializing...")
       window.posthog.init('phc_qYaMZaXZnrZbNL2J9c5sjyrBsVi8zcdk9wf9R9D74UfG', {
-        api_host: 'https://us.posthog.com',
+        api_host: 'https://us.i.posthog.com',
         person_profiles: 'always',
       })
       console.log("[v0] PostHog initialized successfully")
