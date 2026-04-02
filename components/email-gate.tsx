@@ -1,50 +1,77 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { X, Zap } from "lucide-react"
+import { useState, useRef, useEffect } from "react";
+import { X, Zap } from "lucide-react";
+import { submitForm } from "./email-gate.actions";
 
 interface EmailGateProps {
-  open: boolean
-  onSubmit: () => void
-  onClose: () => void
+  open: boolean;
+  onSubmit: () => void;
+  onClose: () => void;
 }
 
 export function EmailGate({ open, onSubmit, onClose }: EmailGateProps) {
-  const [email, setEmail] = useState("")
-  const [error, setError] = useState("")
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    email: "",
+    // Honeypots
+    country: "",
+    phone: "01189998819991197253",
+  });
+  const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus the input when modal opens
   useEffect(() => {
     if (open) {
-      setEmail("")
-      setError("")
-      setTimeout(() => inputRef.current?.focus(), 50)
+      setFormData({ email: "", country: "", phone: "01189998819991197253" });
+      setError("");
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [open])
+  }, [open]);
 
   const validate = (value: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
-  }
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const { email } = formData;
     if (!validate(email)) {
-      setError("Enter a valid email address.")
-      return
+      setError("Enter a valid email address.");
+      return;
     }
-    // No backend — gate is UX only
-    onSubmit()
-  }
+
+    try {
+      await submitForm(formData);
+      onSubmit();
+    } catch (e: unknown) {
+      setError("Error submitting form. Please try again.");
+    }
+    setIsSubmitting(false);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") onClose()
-  }
+    if (e.key === "Escape") onClose();
+  };
 
   return (
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center bg-terminal-bg/90 backdrop-blur-sm transition-opacity duration-200 ${
-        open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        open
+          ? "opacity-100 pointer-events-auto"
+          : "opacity-0 pointer-events-none"
       }`}
       role="dialog"
       aria-modal="true"
@@ -78,23 +105,99 @@ export function EmailGate({ open, onSubmit, onClose }: EmailGateProps) {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3" noValidate>
+          <form
+            onSubmit={handleSubmit}
+            className="flex flex-col gap-3"
+            noValidate
+          >
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="email-gate-input" className="text-[10px] tracking-widest text-muted-foreground">
+              <label
+                htmlFor="email-gate-input"
+                className="text-[10px] tracking-widest text-muted-foreground"
+              >
                 EMAIL ADDRESS
               </label>
               <input
                 ref={inputRef}
                 id="email-gate-input"
                 type="email"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setError("") }}
+                value={formData.email}
+                onChange={(e) => {
+                  setFormData((current) => {
+                    const newFormData = { ...current };
+                    newFormData.email = e.target.value;
+                    return newFormData;
+                  });
+                  setError("");
+                }}
                 placeholder="you@example.com"
                 autoComplete="email"
                 className="w-full border border-border bg-terminal-bg px-3 py-2.5 text-sm text-neon-green placeholder:text-muted-foreground/30 outline-none transition-colors focus:border-neon-green/50 focus:shadow-[0_0_8px_rgba(0,255,65,0.15)] font-mono"
               />
               {error && (
-                <p className="text-[10px] tracking-wide text-red-400">{error}</p>
+                <p className="text-[10px] tracking-wide text-red-400">
+                  {error}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5 !hidden">
+              <label
+                htmlFor="email-gate-input-country"
+                className="text-[10px] tracking-widest text-muted-foreground"
+              >
+                COUNTRY
+              </label>
+              <input
+                id="email-gate-input-country"
+                type="text"
+                value={formData.country}
+                onChange={(e) => {
+                  setFormData((current) => {
+                    const newFormData = { ...current };
+                    newFormData.country = e.target.value;
+                    return newFormData;
+                  });
+                  setError("");
+                }}
+                placeholder="USA"
+                autoComplete="country"
+                className="w-full border border-border bg-terminal-bg px-3 py-2.5 text-sm text-neon-green placeholder:text-muted-foreground/30 outline-none transition-colors focus:border-neon-green/50 focus:shadow-[0_0_8px_rgba(0,255,65,0.15)] font-mono"
+              />
+              {error && (
+                <p className="text-[10px] tracking-wide text-red-400">
+                  {error}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5 !hidden">
+              <label
+                htmlFor="email-gate-input-phone"
+                className="text-[10px] tracking-widest text-muted-foreground"
+              >
+                PHONE NUMBER
+              </label>
+              <input
+                id="email-gate-input-phone"
+                type="phone"
+                value={formData.phone}
+                onChange={(e) => {
+                  setFormData((current) => {
+                    const newFormData = { ...current };
+                    newFormData.phone = e.target.value;
+                    return newFormData;
+                  });
+                  setError("");
+                }}
+                placeholder=""
+                autoComplete="phone"
+                className="w-full border border-border bg-terminal-bg px-3 py-2.5 text-sm text-neon-green placeholder:text-muted-foreground/30 outline-none transition-colors focus:border-neon-green/50 focus:shadow-[0_0_8px_rgba(0,255,65,0.15)] font-mono"
+              />
+              {error && (
+                <p className="text-[10px] tracking-wide text-red-400">
+                  {error}
+                </p>
               )}
             </div>
 
@@ -113,5 +216,5 @@ export function EmailGate({ open, onSubmit, onClose }: EmailGateProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
